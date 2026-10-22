@@ -155,6 +155,7 @@
   .recientes { margin-top: auto; padding-top: 3vh; }
   .der ul { gap: 1.1vh; }
   .der ul li { font-size: clamp(14px, 2.05vh, 23px); line-height: 1.3; color: var(--texto-2); word-break: break-word; }
+  .quien-hist { color: var(--texto); font-weight: 600; }
   .etiqueta { margin-left: .45em; font-size: .8em; color: var(--texto-3); }
 
   /* ---------- pie ---------- */
@@ -477,7 +478,9 @@
     ul.textContent = "";
     hist.slice(0, 4).forEach((m) => {
       const li = document.createElement("li");
-      li.textContent = m.texto;
+      const n = document.createElement("span");      // "Jean: hola jurado"
+      n.className = "quien-hist"; n.textContent = (m.nombre || "Anónimo") + ": ";
+      li.append(n, m.texto);
       if (m.saltado) {
         const e = document.createElement("span");
         e.className = "etiqueta"; e.textContent = "saltado";

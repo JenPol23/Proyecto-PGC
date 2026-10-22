@@ -171,6 +171,7 @@
   .mensaje .e { font-size: 15px; color: var(--texto-2); }
   .mensaje .e.vivo { color: var(--acento); font-weight: 600; }
   .mensaje .t { margin-top: 2px; font-size: 17px; font-weight: 600; word-break: break-word; }
+  .mensaje .quien-msg { color: var(--texto-2); font-weight: 500; }
   .mensaje .acciones { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .enlace { min-height: 40px; padding: 0 4px; border: 0; background: none; color: var(--error); font-size: 15px; font-weight: 500; }
 
@@ -424,7 +425,7 @@
         body: JSON.stringify({ texto: v, cliente }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || "No se pudo enviar.");
-      mios.push({ id: d.id, texto: d.texto, sesion: d.sesion });
+      mios.push({ id: d.id, texto: d.texto, nombre: d.nombre, sesion: d.sesion });
       guardarMios();
       texto.value = "";
       texto.dispatchEvent(new Event("input"));
@@ -554,11 +555,16 @@
       fila.className = "acciones";
       const e = document.createElement("div");
       e.className = "e";
-      const t = document.createElement("div");
-      t.className = "t"; t.textContent = m.texto;
       fila.appendChild(e);
       const enCola = cola.findIndex((c) => c.id === m.id);
       const hist = historial.find((h) => h.id === m.id);
+      // El nombre con el que el servidor guardó el mensaje (el mismo que ve el proyector)
+      const delServidor = (actual && actual.id === m.id) ? actual : enCola >= 0 ? cola[enCola] : hist;
+      const t = document.createElement("div");
+      t.className = "t";
+      const n = document.createElement("span");    // "Jean: hola jurado"
+      n.className = "quien-msg"; n.textContent = (m.nombre || (delServidor && delServidor.nombre) || "Anónimo") + ": ";
+      t.append(n, m.texto);
       if ((actual && actual.id === m.id && actual.saltado) || (hist && hist.saltado)) {
         pos.classList.add("apagado"); pos.textContent = "–";
         e.textContent = "El presentador lo saltó";
