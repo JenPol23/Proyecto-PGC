@@ -1,0 +1,58 @@
+# Palabras que no se muestran en el proyector ni se envían a la mano.
+# Una por línea, en minúscula. Se comparan sin tildes, sin signos y con las
+# letras repetidas reducidas ("gonorreaaa" = "gonorrea"). Las de 7 letras o más
+# también bloquean las palabras que empiezan por ellas ("hijueputas").
+# Las cortas solo bloquean la palabra completa (y su plural), para no afectar
+# palabras legítimas ("marica" no bloquea "Maricarmen").
+# Editar sin miedo: se lee al arrancar el servidor.
+
+# --- groserías e insultos
+hijueputa
+hijuepta
+hijuputa
+hpta
+hp
+gonorrea
+malparido
+malparida
+marica
+maricon
+mk
+puta
+puto
+mierda
+culo
+culicagado
+verga
+chimba
+carechimba
+caremonda
+monda
+pirobo
+piroba
+cachon
+cacorro
+guevon
+huevon
+guevona
+huevona
+mamaguevo
+mamahuevo
+pendejo
+pendeja
+estupido
+estupida
+imbecil
+idiota
+perra
+zorra
+coño
+joder
+follar
+culear
+culiar
+# --- odio y discriminación
+nazi
+sudaca
+veneco
+veneca

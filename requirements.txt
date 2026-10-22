@@ -1,0 +1,19 @@
+# Plataforma (fase 1): servidor, mano por USB, voz → texto y túnel.
+# Versiones fijas = las instaladas y probadas el 20/10/2026 con Python 3.11.
+# Instalar:  py -3.11 -m pip install -r requirements.txt
+fastapi==0.143.1
+starlette==1.8.0
+pydantic==2.14.1
+pydantic_core==2.50.1
+uvicorn[standard]==0.54.0
+websockets==17.2
+python-multipart==0.0.32
+python-dotenv==1.2.4
+pyserial==3.5
+bleak==3.0.2              # mano por Bluetooth (BLE); en Windows instala sus paquetes winrt-*
+qrcode[pil]==8.2
+pillow==12.3.0
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+av==18.1.0
+numpy==2.4.6

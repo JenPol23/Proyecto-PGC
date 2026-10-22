@@ -1,0 +1,6 @@
+{
+  "_descripcion": "Letras de la mano. 'por_defecto' se usa mientras la mano no informe las suyas con la orden 'letras'. Para agregar G, H o S: añádelas aquí y en el firmware.",
+  "por_defecto": "abcdefiklmnopqrtuvwxy",
+  "aproximaciones": {"ñ": "n"},
+  "con_movimiento": ["j", "z", "ñ"]
+}

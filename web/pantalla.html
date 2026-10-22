@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="pgc-admin" content="">
+<title>Mano bidireccional LSC · Pantalla</title>
+<script>
+  // Tema elegido antes de pintar (evita el parpadeo al cargar)
+  try { var t = localStorage.getItem("tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  /* ---------- colores: tema claro ---------- */
+  :root {
+    --fondo: #FFFFFF; --superficie: #F4F6F5; --linea: #E4E8E6;
+    --texto: #141917; --texto-2: #4F5854; --texto-3: #7A837F;
+    --acento: #00482B; --punto-ok: #1A7A55;
+    --aviso: #A86A00; --error: #C2362B; --sobre-error: #FFFFFF;
+    --placa-logo: transparent;
+    --sombra-qr: 0 1px 2px rgba(20, 25, 23, .06), 0 12px 32px rgba(20, 25, 23, .10);
+    --fuente: "Segoe UI Variable Display", "Segoe UI Variable Text", -apple-system, "SF Pro Display", system-ui, Roboto, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  /* ---------- colores: tema oscuro (sistema o elegido) ---------- */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+      --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+      --acento: #74BA9A; --punto-ok: #74BA9A;
+      --aviso: #E2B04A; --error: #EE7A6E; --sobre-error: #1B0A08;
+      --placa-logo: #F4F6F5;
+      --sombra-qr: 0 12px 32px rgba(0, 0, 0, .35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+    --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+    --acento: #74BA9A; --punto-ok: #74BA9A;
+    --aviso: #E2B04A; --error: #EE7A6E; --sobre-error: #1B0A08;
+    --placa-logo: #F4F6F5;
+    --sombra-qr: 0 12px 32px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+  html.cambiando, html.cambiando * {
+    transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease !important;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { background: var(--fondo); color: var(--texto); font-family: var(--fuente);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-rows: auto 1fr auto;
+    gap: 2.4vh; padding: 3vh 3.2vw 2.4vh; }
+  :focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; }
+
+  /* ---------- encabezado ---------- */
+  header { display: flex; align-items: center; gap: 1.1vw; }
+  .placa { display: grid; place-items: center; background: var(--placa-logo); border-radius: 1.2vh; padding: .5vh .6vh; }
+  .placa img { height: clamp(34px, 5.4vh, 60px); width: auto; display: block; }
+  .pgc { font-size: clamp(11px, 1.5vh, 16px); font-weight: 600; color: var(--acento); border: 1.5px solid var(--acento);
+    border-radius: 999px; padding: .2em .7em; letter-spacing: .04em; }
+  header h1 { margin: 0; font-size: clamp(18px, 2.9vh, 32px); font-weight: 600; letter-spacing: -.01em; }
+  .acciones { margin-left: auto; display: flex; gap: .4vw; }
+  .icono { width: clamp(40px, 5vh, 54px); height: clamp(40px, 5vh, 54px); border: 0; border-radius: 50%;
+    background: transparent; color: var(--texto-2); display: grid; place-items: center; cursor: pointer; }
+  .icono:hover { background: var(--superficie); color: var(--texto); }
+  .icono svg { width: 48%; height: 48%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- tres columnas ---------- */
+  main { display: grid; grid-template-columns: minmax(280px, 23vw) 1fr minmax(260px, 20vw); gap: 3vw; min-height: 0; }
+
+  /* izquierda: QR + estado */
+  .izq { display: flex; flex-direction: column; min-height: 0; }
+  .qr { background: #FFFFFF; border-radius: 2.2vh; padding: 1.4vh; box-shadow: var(--sombra-qr);
+    width: 100%; max-width: 38vh; aspect-ratio: 1; }
+  .qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .invita { font-size: clamp(18px, 3vh, 34px); font-weight: 600; line-height: 1.2; letter-spacing: -.01em;
+    margin: 2.6vh 0 .8vh; max-width: 13em; text-wrap: balance; }
+  .url { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); overflow-wrap: anywhere; }
+  .estados { margin: auto 0 0; padding-top: 3vh; display: grid; grid-template-columns: auto 1fr;
+    gap: 1.2vh 1.4vw; font-size: clamp(13px, 1.9vh, 21px); }
+  .estados dt { color: var(--texto-2); display: flex; align-items: center; gap: .6em; }
+  .estados dd { margin: 0; }
+  .punto { width: .62em; height: .62em; border-radius: 50%; flex: none; background: var(--texto-3); }
+  .punto.ok { background: var(--punto-ok); }
+  .punto.aviso { background: var(--aviso); }
+  .punto.error { background: var(--error); }
+  .punto.pendiente { background: transparent; box-shadow: inset 0 0 0 1.5px var(--texto-3); }
+
+  /* centro: lo que se deletrea */
+  .centro { display: grid; min-height: 0; text-align: center; }
+  .vista { grid-area: 1 / 1; align-self: center; width: 100%; min-height: 0; display: flex; flex-direction: column; align-items: center;
+    transition: opacity .45s ease, transform .45s cubic-bezier(.2, .7, .2, 1), visibility 0s; }
+  #vDeletreo { align-self: stretch; justify-content: center; }
+  .vista.oculta { opacity: 0; transform: translateY(1.5vh); visibility: hidden; pointer-events: none;
+    transition: opacity .3s ease, transform .3s ease, visibility 0s .3s; }
+
+  .rotulo { font-size: clamp(16px, 2.4vh, 28px); color: var(--texto-2); min-height: 1.3em;
+    max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* La letra ocupa el alto que dejan libre el rótulo, la palabra y las notas */
+  .escenario { position: relative; flex: 1 1 0; min-height: 0; max-height: 50vh; width: 100%; container-type: size; }
+  .glifo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: min(100cqh, 62cqw); line-height: 1; font-weight: 600; letter-spacing: -.04em; color: var(--acento);
+    animation: entra .38s cubic-bezier(.2, .7, .2, 1) .12s both; }   /* entra cuando la anterior ya casi salió */
+  .glifo.nd { color: var(--texto-3); }
+  .glifo.texto { font-size: min(22cqh, 9cqw); letter-spacing: -.02em; color: var(--texto); }
+  .glifo.sale { animation: sale .16s ease-in both; }
+  @keyframes entra { from { opacity: 0; transform: translateY(4%); } to { opacity: 1; transform: none; } }
+  @keyframes sale { to { opacity: 0; transform: translateY(-3%); } }
+  .detalle { font-size: clamp(16px, 2.6vh, 30px); color: var(--texto-2); min-height: 1.3em; margin-top: .4vh; }
+  .detalle.aviso { color: var(--aviso); }
+
+  .palabra { position: relative; display: flex; flex-wrap: wrap; justify-content: center; column-gap: .34em; row-gap: .45em;
+    margin-top: 3vh; padding-bottom: .3em; max-width: 100%; font-size: clamp(22px, 5.4vh, 62px); font-weight: 500; }
+  .palabra.larga { font-size: clamp(18px, 4vh, 46px); }
+  .grupo { display: inline-flex; flex-wrap: wrap; justify-content: center; column-gap: .34em; row-gap: .45em; max-width: 100%; }
+  .l { color: var(--texto-3); line-height: 1.1; transition: color .3s ease; }
+  .l.hecha { color: var(--texto); }
+  .l.ahora { color: var(--acento); font-weight: 600; }
+  .l.nd { text-decoration: underline dotted; text-decoration-thickness: .08em; text-underline-offset: .2em; }
+  .l.error { color: var(--error); }
+  .l.esp { width: .45em; }
+  .marca { position: absolute; left: 0; top: 0; width: 0; height: max(3px, .45vh); border-radius: 3px;
+    background: var(--acento); opacity: 0;
+    transition: left .3s cubic-bezier(.2, .7, .2, 1), top .3s cubic-bezier(.2, .7, .2, 1), width .3s ease, opacity .2s; }
+  .nota-nd { font-size: clamp(13px, 1.8vh, 20px); color: var(--texto-2); margin-top: 2.4vh; min-height: 1.3em; }
+
+  /* reposo */
+  .reposo h2 { margin: 0; font-size: clamp(34px, 7.6vh, 90px); font-weight: 600; letter-spacing: -.025em; line-height: 1.05; }
+  .reposo p { margin: 2.4vh auto 0; max-width: 28em; font-size: clamp(17px, 2.7vh, 32px); line-height: 1.4; color: var(--texto-2); }
+  .alfabeto { display: flex; flex-wrap: wrap; justify-content: center; gap: .2em .55em; margin-top: 6.5vh; max-width: 82%;
+    font-size: clamp(20px, 3.8vh, 44px); font-weight: 500; color: var(--texto-3); }
+  .alfabeto span { transition: color .6s ease; }
+  .alfabeto span.activa { color: var(--acento); }
+  .alfabeto-nota { margin-top: 1.4vh; font-size: clamp(13px, 1.7vh, 19px); color: var(--texto-2); }
+
+  /* derecha: cola */
+  .der { display: flex; flex-direction: column; min-height: 0; }
+  .der h3 { margin: 0 0 1.6vh; font-size: clamp(15px, 2vh, 22px); font-weight: 600; color: var(--texto-2); }
+  .der ol, .der ul { list-style: none; margin: 0; padding: 0; display: grid; overflow: hidden; }
+  .der ol { gap: 1.5vh; }
+  .der ol li { display: grid; grid-template-columns: 1.5em 1fr; gap: .3em; font-size: clamp(16px, 2.5vh, 28px);
+    line-height: 1.25; color: var(--texto-2); word-break: break-word; }
+  .der ol li:first-child { color: var(--texto); }
+  .der ol li.mas { display: block; font-size: clamp(14px, 2vh, 22px); }
+  .der ol li { position: relative; }
+  .autor { display: block; margin-top: .15em; font-size: .7em; color: var(--texto-2); }
+  /* Bloquear desde la cola: solo aparece al pasar el ratón (no ensucia lo que se proyecta) */
+  .bloquear-li { position: absolute; right: 0; top: 0; opacity: 0; font: inherit; font-size: clamp(11px, 1.4vh, 15px);
+    color: var(--error); background: var(--fondo); border: 1px solid var(--linea); border-radius: 999px;
+    padding: .2em .7em; cursor: pointer; transition: opacity .15s; }
+  .der ol li:hover .bloquear-li, .bloquear-li:focus-visible { opacity: 1; }
+  .num { color: var(--acento); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .vacio { font-size: clamp(14px, 2vh, 22px); color: var(--texto-2); }
+  .recientes { margin-top: auto; padding-top: 3vh; }
+  .der ul { gap: 1.1vh; }
+  .der ul li { font-size: clamp(14px, 2.05vh, 23px); line-height: 1.3; color: var(--texto-2); word-break: break-word; }
+  .etiqueta { margin-left: .45em; font-size: .8em; color: var(--texto-3); }
+
+  /* ---------- pie ---------- */
+  footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 3vw;
+    border-top: 1px solid var(--linea); padding-top: 1.8vh; }
+  .creditos { margin: 0; max-width: 76%; font-size: clamp(11px, 1.45vh, 16px); line-height: 1.5; color: var(--texto-2); }
+  .creditos .completo { color: var(--texto); }
+  .controles { display: flex; gap: .5vw; flex: none; }
+  .controles button { font: inherit; font-size: clamp(12px, 1.6vh, 17px); font-weight: 500; color: var(--texto-2);
+    background: transparent; border: 1px solid var(--linea); border-radius: 999px; padding: .7vh 1.1vw; cursor: pointer; }
+  .controles button:hover:not(:disabled) { color: var(--texto); border-color: var(--texto-3); }
+  .controles button:disabled { opacity: .45; cursor: default; }
+  .controles { align-items: center; }
+  .aviso-admin { font-size: clamp(12px, 1.6vh, 17px); color: var(--texto-2); margin-right: .4vw; }
+  .aviso-admin button { border: 0; padding: 0 .2em; color: var(--acento); font-weight: 600; text-decoration: underline; }
+
+  .desconectado { position: fixed; top: 0; left: 0; right: 0; z-index: 5; padding: .9vh; text-align: center;
+    background: var(--error); color: var(--sobre-error); font-weight: 600; font-size: clamp(13px, 1.8vh, 20px);
+    transform: translateY(-100%); transition: transform .3s ease; }
+  .desconectado.si { transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  }
+</style>
+</head>
+<body>
+<div id="desconectado" class="desconectado" role="status">Sin conexión con el servidor. Reconectando…</div>
+
+<header>
+  <div class="placa"><img src="/logo-udec.png" alt="Universidad de Cundinamarca"></div>
+  <span class="pgc">PGC</span>
+  <h1>Mano bidireccional LSC</h1>
+  <div class="acciones">
+    <button id="btnTema" class="icono" type="button"></button>
+    <button id="btnCompleta" class="icono" type="button" title="Pantalla completa (F)" aria-label="Pantalla completa">
+      <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="izq">
+    <div class="qr"><img id="qr" alt="Código QR para abrir la página en el celular"></div>
+    <div class="invita">Escanea y escribe o habla a la mano</div>
+    <div id="url" class="url"></div>
+    <dl class="estados">
+      <dt><span id="pMano" class="punto"></span>Mano</dt><dd id="eMano">—</dd>
+      <dt><span id="pVoz" class="punto"></span>Voz</dt><dd id="eVoz">—</dd>
+      <dt><span id="pTunel" class="punto"></span>HTTPS</dt><dd id="eTunel">—</dd>
+      <dt><span id="pKinect" class="punto"></span>Kinect</dt><dd id="eKinect">—</dd>
+    </dl>
+  </section>
+
+  <section class="centro" aria-live="polite">
+    <div id="vReposo" class="vista reposo">
+      <h2>Mano bidireccional LSC</h2>
+      <p>Escanea el código con tu celular y escribe o di algo. La mano lo deletreará en Lengua de Señas Colombiana.</p>
+      <div id="alfabeto" class="alfabeto" aria-hidden="true"></div>
+      <div id="alfabetoNota" class="alfabeto-nota"></div>
+    </div>
+    <div id="vDeletreo" class="vista oculta">
+      <div id="rotulo" class="rotulo"></div>
+      <div id="escenario" class="escenario"></div>
+      <div id="detalle" class="detalle"></div>
+      <div id="palabra" class="palabra"><div id="marca" class="marca"></div></div>
+      <div id="notaNd" class="nota-nd"></div>
+    </div>
+  </section>
+
+  <section class="der">
+    <h3>En cola</h3>
+    <ol id="cola"></ol>
+    <div id="colaVacia" class="vacio">Nadie en espera.</div>
+    <div class="recientes">
+      <h3>Recientes</h3>
+      <ul id="historial"></ul>
+      <div id="histVacio" class="vacio">Todavía no hay mensajes.</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="creditos">
+    <span class="completo">Diseño e implementación de un sistema robótico bidireccional para la traducción de Lengua de Señas Colombiana (LSC) mediante visión por computador, control de mano robótica y síntesis/reconocimiento de voz</span><br>
+    Jean Paul Miranda Díaz, Lina Tatiana Maldonado Rivera, Paula Camila Enríquez Galindo, Jean Harry Raigozo<br>
+    Ingeniería de Sistemas y Computación, Universidad de Cundinamarca, extensión Facatativá
+  </p>
+  <div class="controles">
+    <span id="avisoAdmin" class="aviso-admin" role="status"></span>
+    <button id="btnBloquear" type="button" title="Pausa a esta persona durante la sesión y cancela sus mensajes en espera" disabled>Bloquear participante</button>
+    <button id="btnSaltar" type="button" title="Cancela el mensaje en curso y deja la mano abierta" disabled>Saltar mensaje</button>
+    <button id="btnReconectar" type="button" title="Volver a buscar la mano por USB">Reconectar mano</button>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const MAX_COLA_VISIBLE = 7;
+  let urlQr = null;
+
+  // Token de administrador: el servidor solo lo pone cuando esta página se abre en el propio PC
+  const TOKEN = document.querySelector('meta[name="pgc-admin"]').content;
+  const admin = (ruta) => fetch(ruta, { method: "POST", headers: { "X-PGC-Admin": TOKEN } });
+
+  // ---------- bloquear participantes (con aviso para deshacer)
+  let tAviso = null;
+  function avisoAdmin(texto, deshacer) {
+    const el = $("#avisoAdmin");
+    el.textContent = texto;
+    if (deshacer) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = "Deshacer";
+      b.addEventListener("click", () => { deshacer(); el.textContent = ""; });
+      el.append(" ", b);
+    }
+    clearTimeout(tAviso);
+    tAviso = setTimeout(() => { el.textContent = ""; }, 10000);
+  }
+  async function bloquear(pid, nombre) {
+    const r = await admin("/api/participantes/" + encodeURIComponent(pid) + "/bloquear");
+    if (!r.ok) { avisoAdmin("No se pudo bloquear."); return; }
+    const d = await r.json();
+    const quien = nombre || "el participante";
+    const partes = [];
+    if (d.saltado) partes.push("se saltó su mensaje");
+    if (d.cancelados) partes.push("se " + (d.cancelados === 1 ? "canceló 1 mensaje" : "cancelaron " + d.cancelados + " mensajes"));
+    avisoAdmin("Bloqueaste a " + quien + (partes.length ? ": " + partes.join(" y ") : "") + ".",
+      () => admin("/api/participantes/" + encodeURIComponent(pid) + "/desbloquear"));
+  }
+  const autorDe = (m) => m && m.nombre ? "Mensaje de: " + m.nombre : "";
+
+  // ---------- tema claro / oscuro
+  const raiz = document.documentElement;
+  const oscuroSistema = matchMedia("(prefers-color-scheme: dark)");
+  const SOL = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>';
+  const LUNA = '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+  const temaActual = () => raiz.dataset.theme || (oscuroSistema.matches ? "dark" : "light");
+  function pintarBotonTema() {
+    const oscuro = temaActual() === "dark";
+    const b = $("#btnTema");
+    b.innerHTML = oscuro ? SOL : LUNA;
+    b.title = oscuro ? "Tema claro" : "Tema oscuro (recomendado con la sala oscura)";
+    b.setAttribute("aria-label", oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro");
+  }
+  $("#btnTema").addEventListener("click", () => {
+    const nuevo = temaActual() === "dark" ? "light" : "dark";
+    raiz.classList.add("cambiando");
+    raiz.dataset.theme = nuevo;
+    try { localStorage.setItem("tema", nuevo); } catch (e) {}
+    pintarBotonTema();
+    setTimeout(() => raiz.classList.remove("cambiando"), 300);
+  });
+  oscuroSistema.addEventListener("change", pintarBotonTema);
+  pintarBotonTema();
+
+  // ---------- estado de los componentes
+  function estadoFila(clave, clase, txt) {
+    $("#p" + clave).className = "punto " + clase;
+    $("#e" + clave).textContent = txt;
+  }
+  const mayus = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // ---------- reposo: letras que la mano sabe hacer
+  let letrasAlfabeto = "", letrasPorDefecto = null, pidiendoDefecto = false, iAlf = 0;
+  function ponerAlfabeto(letras) {
+    if (!letras || letras === letrasAlfabeto) return;
+    letrasAlfabeto = letras;
+    const cont = $("#alfabeto");
+    cont.textContent = "";
+    [...letras].forEach((c) => { const s = document.createElement("span"); s.textContent = c; cont.appendChild(s); });
+    iAlf = 0;
+    $("#alfabetoNota").textContent = "Las " + letras.length + " letras que la mano sabe hacer";
+  }
+  async function pedirLetrasPorDefecto() {
+    // En modo simulado la mano no reporta letras: se usan las del servidor por defecto
+    if (pidiendoDefecto) return;
+    pidiendoDefecto = true;
+    try {
+      const r = await fetch("/api/previa", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: "abcdefghijklmnopqrstuvwxyz" }) });
+      if (r.ok) {
+        letrasPorDefecto = (await r.json()).pasos.filter((p) => p.tipo === "ok").map((p) => p.c).join("");
+        if (!letrasAlfabeto) ponerAlfabeto(letrasPorDefecto);
+      }
+    } catch (e) {}
+    pidiendoDefecto = false;
+  }
+  setInterval(() => {
+    const spans = $("#alfabeto").children;
+    if (!spans.length || $("#vReposo").classList.contains("oculta")) return;
+    for (const s of spans) s.classList.remove("activa");
+    spans[iAlf % spans.length].classList.add("activa");
+    iAlf++;
+  }, 1500);
+
+  // ---------- centro: letra grande con transición
+  let claveGlifo = null, idPalabra = null, spansPalabra = [];
+  function ponerGlifo(clave, txt, clase) {
+    if (clave === claveGlifo) return;
+    claveGlifo = clave;
+    const esc = $("#escenario");
+    esc.querySelectorAll(".glifo:not(.sale)").forEach((g) => {
+      g.classList.add("sale");
+      setTimeout(() => g.remove(), 200);
+    });
+    const g = document.createElement("div");
+    g.className = "glifo" + (clase ? " " + clase : "");
+    g.textContent = txt;
+    esc.appendChild(g);
+  }
+  function detalle(txt, clase) {
+    const el = $("#detalle");
+    el.className = "detalle" + (clase ? " " + clase : "");
+    el.textContent = txt;
+  }
+
+  function moverMarca(sinAnimar) {
+    const marca = $("#marca");
+    const s = $("#palabra .l.ahora");
+    if (!s || s.classList.contains("esp")) { marca.style.opacity = 0; return; }
+    if (sinAnimar) marca.style.transition = "none";
+    marca.style.left = s.offsetLeft + "px";
+    marca.style.top = (s.offsetTop + s.offsetHeight + 4) + "px";
+    marca.style.width = s.offsetWidth + "px";
+    marca.style.opacity = 1;
+    if (sinAnimar) { void marca.offsetWidth; marca.style.transition = ""; }
+  }
+
+  function pintarPalabra(a) {
+    const cont = $("#palabra");
+    const nuevo = a.id !== idPalabra;
+    if (nuevo) {
+      idPalabra = a.id;
+      cont.querySelectorAll(".grupo, .l").forEach((s) => s.remove());
+      cont.classList.toggle("larga", a.pasos.length > 22);
+      // Las letras de cada palabra van juntas para que una palabra no se parta entre líneas
+      spansPalabra = [];
+      let grupo = null;
+      a.pasos.forEach((q) => {
+        const s = document.createElement("span");
+        spansPalabra.push(s);
+        if (q.tipo === "espacio") { cont.appendChild(s); grupo = null; return; }
+        s.textContent = q.c;
+        if (!grupo) { grupo = document.createElement("span"); grupo.className = "grupo"; cont.appendChild(grupo); }
+        grupo.appendChild(s);
+      });
+    }
+    a.pasos.forEach((q, k) => {
+      spansPalabra[k].className = "l" + (q.tipo === "espacio" ? " esp" : "") + (q.tipo === "nd" ? " nd" : "") +
+        (k < a.i ? " hecha" : k === a.i && !a.saltado ? " ahora" : "") + (q.r === "error" ? " error" : "");
+    });
+    moverMarca(nuevo);
+    $("#notaNd").textContent = a.pasos.some((q) => q.tipo === "nd") ? "Las letras con puntos debajo la mano aún no las hace." : "";
+  }
+
+  function pintarDeletreo(a) {
+    if (a.saltado) {
+      $("#rotulo").textContent = "«" + a.texto + "»";
+      ponerGlifo("saltado:" + a.id, "Mensaje saltado", "texto");
+      detalle("Abriendo la mano");
+    } else {
+      $("#rotulo").textContent = autorDe(a) || "Deletreando";
+      const p = a.pasos[a.i];
+      if (a.i < 0) { ponerGlifo("prep:" + a.id, "", ""); detalle(""); }
+      else if (!p) { ponerGlifo("fin:" + a.id, "✓", ""); detalle("Mensaje completo"); }
+      else if (p.tipo === "espacio") { ponerGlifo(a.id + ":" + a.i, "Espacio", "texto"); detalle("Mano abierta"); }
+      else {
+        ponerGlifo(a.id + ":" + a.i, p.c, p.tipo === "nd" ? "nd" : "");
+        if (p.tipo === "nd") detalle("La mano aún no hace esta letra");
+        else if (p.tipo === "aprox") detalle("Se forma como la N", "aviso");
+        else detalle("");
+      }
+    }
+    pintarPalabra(a);
+  }
+
+  function mostrarVista(deletreando) {
+    $("#vDeletreo").classList.toggle("oculta", !deletreando);
+    $("#vReposo").classList.toggle("oculta", deletreando);
+  }
+
+  // ---------- derecha: cola y recientes
+  function pintarCola(cola) {
+    const ol = $("#cola");
+    ol.textContent = "";
+    cola.slice(0, MAX_COLA_VISIBLE).forEach((m, k) => {
+      const li = document.createElement("li");
+      const n = document.createElement("span");
+      n.className = "num"; n.textContent = k + 1;
+      const t = document.createElement("span");
+      t.textContent = m.texto;
+      if (m.nombre) {
+        const a = document.createElement("span");
+        a.className = "autor"; a.textContent = autorDe(m);
+        t.appendChild(a);
+      }
+      li.append(n, t);
+      if (TOKEN && m.pid) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "bloquear-li"; b.textContent = "Bloquear";
+        b.title = "Pausa a esta persona durante la sesión";
+        b.addEventListener("click", () => bloquear(m.pid, m.nombre));
+        li.appendChild(b);
+      }
+      ol.appendChild(li);
+    });
+    if (cola.length > MAX_COLA_VISIBLE) {
+      const li = document.createElement("li");
+      li.className = "mas";
+      li.textContent = "y " + (cola.length - MAX_COLA_VISIBLE) + " más";
+      ol.appendChild(li);
+    }
+    $("#colaVacia").style.display = cola.length ? "none" : "block";
+  }
+  function pintarHistorial(hist) {
+    const ul = $("#historial");
+    ul.textContent = "";
+    hist.slice(0, 4).forEach((m) => {
+      const li = document.createElement("li");
+      li.textContent = m.texto;
+      if (m.saltado) {
+        const e = document.createElement("span");
+        e.className = "etiqueta"; e.textContent = "saltado";
+        li.appendChild(e);
+      }
+      ul.appendChild(li);
+    });
+    $("#histVacio").style.display = hist.length ? "none" : "block";
+  }
+
+  // ---------- aplicar el estado recibido
+  function aplicar(d) {
+    if (d.tipo !== "estado") return;
+
+    // QR y URL pública
+    if (d.url_publica !== urlQr) {
+      urlQr = d.url_publica;
+      $("#qr").src = "/qr.png?u=" + encodeURIComponent(urlQr);
+      // Corte de línea solo después de los puntos: "…-uploaded." / "trycloudflare.com"
+      $("#url").textContent = urlQr.replace(/^https?:\/\//, "").replace(/\./g, ".​");
+    }
+
+    // Estados
+    const m = d.mano;
+    estadoFila("Mano", m.modo === "real" ? "ok" : "aviso",
+      m.modo !== "real" ? "Simulada" : (m.medio === "ble" ? "Bluetooth · " : "USB · ") + m.puerto);
+    const v = d.voz;
+    estadoFila("Voz", v.estado === "listo" ? "ok" : v.estado === "cargando" ? "aviso" : v.estado === "error" ? "error" : "",
+      v.estado === "listo" ? "Lista en " + ((v.dispositivo || "").startsWith("cuda") ? "GPU" : "CPU")
+        : v.estado === "cargando" ? "Cargando…" : mayus(v.estado));
+    const t = d.tunel;
+    estadoFila("Tunel", t.estado === "activo" ? "ok" : t.estado === "iniciando" ? "aviso" : "error",
+      t.estado === "activo" ? "Activo" : t.estado === "iniciando" ? "Iniciando…" : t.estado === "apagado" ? "Solo red local" : mayus(t.estado));
+    estadoFila("Kinect", "pendiente", "Próxima fase");
+
+    // Letras que sabe hacer la mano (reposo)
+    if (m.letras) ponerAlfabeto(m.letras.toUpperCase());
+    else if (letrasPorDefecto) ponerAlfabeto(letrasPorDefecto);
+    else pedirLetrasPorDefecto();
+
+    // Centro
+    const a = d.actual;
+    $("#btnSaltar").disabled = !a || a.saltado;
+    actualPid = a && !a.saltado && !(d.bloqueados || []).includes(a.pid) ? a.pid : null;
+    actualNombre = a ? a.nombre : null;
+    $("#btnBloquear").disabled = !actualPid;
+    $("#btnBloquear").textContent = actualPid && actualNombre ? "Bloquear a " + actualNombre : "Bloquear participante";
+    mostrarVista(!!a);
+    if (a) pintarDeletreo(a);
+    else { claveGlifo = null; idPalabra = null; }
+
+    pintarCola(d.cola);
+    pintarHistorial(d.historial);
+  }
+  addEventListener("resize", () => moverMarca(true));
+
+  // ---------- conexión en vivo
+  let ws = null, espera = 1000;
+  function conectar() {
+    if (ws && ws.readyState <= 1) return;
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+    ws.onopen = () => { espera = 1000; $("#desconectado").classList.remove("si"); };
+    ws.onmessage = (e) => { try { aplicar(JSON.parse(e.data)); } catch (x) { console.error(x); } };
+    ws.onclose = () => {
+      $("#desconectado").classList.add("si");
+      setTimeout(conectar, espera);
+      espera = Math.min(espera * 2, 5000);
+    };
+  }
+  conectar();
+
+  // ---------- controles
+  function completa() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+  $("#btnCompleta").addEventListener("click", completa);
+  document.addEventListener("keydown", (e) => { if (e.key === "f" || e.key === "F") completa(); });
+  if (!TOKEN) $(".controles").style.display = "none";   // abierta desde otro equipo: sin controles
+  let actualPid = null, actualNombre = null;
+  $("#btnBloquear").addEventListener("click", () => {
+    if (!actualPid) return;
+    $("#btnBloquear").disabled = true;
+    bloquear(actualPid, actualNombre);
+  });
+  $("#btnReconectar").addEventListener("click", () => admin("/api/mano/reconectar"));
+  $("#btnSaltar").addEventListener("click", () => {
+    $("#btnSaltar").disabled = true;               // el estado nuevo lo vuelve a habilitar si hace falta
+    admin("/api/mano/saltar");
+  });
+})();
+</script>
+</body>
+</html>

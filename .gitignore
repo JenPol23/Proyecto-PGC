@@ -1,0 +1,50 @@
+# Secretos: nunca al repositorio
+.env
+.env.*
+!.env.example
+config_ble.py
+config_wifi.py
+firmware/esp32/config_ble.py
+secrets.py
+secretos.py
+*.pem
+*.key
+
+# Python generado
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Editores y herramientas locales
+.vscode/
+.idea/
+.claude/
+
+# Pesados: instaladores, videos, datasets y modelos
+*.exe
+*.msi
+*.zip
+*.mp4
+*.avi
+*.mov
+*.mkv
+dataset/
+datasets/
+*.pt
+*.pth
+*.onnx
+*.npz
+
+# Copias locales y basura del sistema
+respaldos/
+capturas/
+Thumbs.db
+desktop.ini
