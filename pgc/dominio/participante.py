@@ -2,6 +2,7 @@
 import re
 
 MAX_NOMBRE = 20
+ANONIMO = "Anónimo"          # autor de los mensajes de quien no puso nombre
 _PATRON = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 .'\-]+$")
 MSG_NOMBRE_INVALIDO = f"Usa solo letras en tu nombre (máximo {MAX_NOMBRE})."
 MSG_NOMBRE_OFENSIVO = "Ese nombre no se puede mostrar. Prueba con otro."

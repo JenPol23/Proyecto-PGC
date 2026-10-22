@@ -94,7 +94,7 @@ def test_enviar_mensaje_y_deletrearlo(abrir_api):
     with abrir_api() as (c, s):
         r = c.post("/api/mensaje", json={"texto": "Hola", "cliente": "A"})
         assert r.status_code == 200
-        assert r.json() == {"id": 1, "texto": "hola", "sesion": s.sesion}
+        assert r.json() == {"id": 1, "texto": "hola", "nombre": "Anónimo", "sesion": s.sesion}
         esperar(lambda: len(s.historial) == 1)
         assert s.mano.ordenes == ["o", "l", "a", "reset"]
 
@@ -267,7 +267,7 @@ def test_websocket_sigue_un_mensaje(abrir_api):
             assert [p["r"] for p in d["actual"]["pasos"]] == ["ok", None]
             c.post("/api/mensaje", json={"texto": "c", "cliente": "B"})
             d = recibir_hasta(ws, lambda d: d["cola"])
-            assert d["cola"] == [{"id": 2, "texto": "c", "pid": ANY, "nombre": None}]    # E8: autor
+            assert d["cola"] == [{"id": 2, "texto": "c", "pid": ANY, "nombre": "Anónimo"}]    # E8: autor (sin nombre)
             s.mano.soltar.set()
             d = recibir_hasta(ws, lambda d: len(d["historial"]) == 2 and d["actual"] is None)
     assert [m["texto"] for m in d["historial"]] == ["c", "ab"]

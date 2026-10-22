@@ -76,7 +76,7 @@ def test_instantanea_no_expone_el_cliente(crear_sistema):
     s = crear_sistema()
     s.encolar("hola", "secreto-del-celular")
     d = s.instantanea()
-    assert d["cola"] == [{"id": 1, "texto": "hola", "pid": ANY, "nombre": None}]     # E8: autor
+    assert d["cola"] == [{"id": 1, "texto": "hola", "pid": ANY, "nombre": "Anónimo"}]     # E8: autor (sin nombre)
     assert re.fullmatch(r"p[0-9a-f]{8}", d["cola"][0]["pid"])
     assert "secreto-del-celular" not in repr(d)
 
@@ -141,7 +141,7 @@ def test_resultado_por_paso_y_fin(sistema_con_mano):
     assert m["i"] == len(m["pasos"])
     assert s.actual is None
     d = s.instantanea()
-    assert d["historial"][0] == {"id": m["id"], "texto": "ha b", "saltado": False}
+    assert d["historial"][0] == {"id": m["id"], "texto": "ha b", "nombre": "Anónimo", "saltado": False}
 
 
 def test_secuencia_se_recalcula_con_las_letras_de_la_mano(sistema_con_mano):
@@ -189,7 +189,7 @@ def test_estado_durante_el_deletreo(sistema_con_mano):
     s.encolar("abc", "c1")
     s.mano.llego.wait(5)
     a = s.instantanea()["actual"]
-    assert a == {"id": 1, "texto": "abc", "i": 2, "saltado": False, "pid": ANY, "nombre": None, "pasos": [
+    assert a == {"id": 1, "texto": "abc", "i": 2, "saltado": False, "pid": ANY, "nombre": "Anónimo", "pasos": [
         {"c": "A", "tipo": "ok", "r": "ok"}, {"c": "B", "tipo": "ok", "r": "ok"}, {"c": "C", "tipo": "ok", "r": None}]}
 
 
@@ -206,7 +206,7 @@ def test_saltar_mensaje(sistema_con_mano):
     assert s.instantanea()["historial"][0]["saltado"] is True
     # El siguiente mensaje se deletrea normal
     assert deletrear(s, "ok", cliente="c2") == ["o", "k", "reset"]
-    assert s.instantanea()["historial"][0] == {"id": 2, "texto": "ok", "saltado": False}
+    assert s.instantanea()["historial"][0] == {"id": 2, "texto": "ok", "nombre": "Anónimo", "saltado": False}
 
 
 def test_reconexion_pedida(sistema_con_mano):

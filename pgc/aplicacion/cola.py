@@ -4,6 +4,7 @@ import threading
 import time
 from collections import deque
 
+from pgc.dominio.participante import ANONIMO
 from pgc.dominio.texto import a_secuencia, limpiar
 
 
@@ -32,7 +33,11 @@ class ColaDeMensajes:
         return f"#{msg['id']} ({sum(p['tipo'] != 'espacio' for p in msg['pasos'])} letras)"
 
     def encolar(self, texto, cliente, letras_mano=None, autor=None):
-        """autor: {"pid", "nombre"} del participante (se muestra en el proyector)."""
+        """autor: {"pid", "nombre"} del participante (se muestra en el proyector).
+
+        El nombre se copia al mensaje al encolarlo, tal como lo escribió la persona;
+        sin nombre queda "Anónimo".
+        """
         original = texto
         texto = limpiar(texto, self.max_caracteres)
         pasos = a_secuencia(texto, letras_mano, self.max_caracteres)
@@ -54,7 +59,7 @@ class ColaDeMensajes:
                 raise ValueError("La cola está llena, intenta en un momento.")
             autor = autor or {}
             msg = {"id": next(self._ids), "texto": texto, "cliente": cliente,
-                   "pid": autor.get("pid"), "nombre": autor.get("nombre"),
+                   "pid": autor.get("pid"), "nombre": autor.get("nombre") or ANONIMO,
                    "pasos": pasos, "i": -1, "creado": time.time()}
             self.pendientes.append(msg)
             self.cv.notify_all()
@@ -129,6 +134,7 @@ class ColaDeMensajes:
                           "pasos": [{"c": p["c"], "tipo": p["tipo"], "r": p.get("r")} for p in m["pasos"]]}
             cola = [{"id": m["id"], "texto": m["texto"], "pid": m.get("pid"), "nombre": m.get("nombre")}
                     for m in self.pendientes]
-            historial = [{"id": m["id"], "texto": m["texto"], "saltado": m.get("saltado", False)}
+            historial = [{"id": m["id"], "texto": m["texto"], "nombre": m.get("nombre") or ANONIMO,
+                          "saltado": m.get("saltado", False)}
                          for m in self.historial]
         return actual, cola, historial

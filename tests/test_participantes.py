@@ -68,7 +68,26 @@ def test_mensaje_de_en_el_proyector(abrir_api):
         registrar(c, "A", "Ana María")                         # cambiar el nombre no cambia lo ya enviado
         d = c.get("/api/estado").json()
         assert d["actual"]["nombre"] == "Ana"
-        assert [(m["texto"], m["nombre"]) for m in d["cola"]] == [("uña", None)]
+        assert [(m["texto"], m["nombre"]) for m in d["cola"]] == [("uña", "Anónimo")]
+
+
+def test_el_nombre_viaja_con_el_mensaje_hasta_recientes(abrir_api):
+    with abrir_api() as (c, s):
+        registrar(c, "A", "Jean")
+        r = enviar(c, "A", "Hola jurado")
+        assert r.json()["nombre"] == "Jean"                    # el celular sabe con qué nombre se guardó
+        r = enviar(c, "B", "ok")                               # B no dio nombre
+        assert r.json()["nombre"] == "Anónimo"
+        esperar(lambda: len(c.get("/api/estado").json()["historial"]) == 2, timeout=30)
+        hist = c.get("/api/estado").json()["historial"]
+        assert [(m["nombre"], m["texto"]) for m in hist] == [("Anónimo", "ok"), ("Jean", "hola jurado")]
+
+
+def test_el_nombre_conserva_sus_mayusculas(abrir_api):
+    with abrir_api() as (c, s):
+        for nombre in ("Jean", "jean", "JEAN", "María José"):
+            assert registrar(c, "A", nombre).json()["nombre"] == nombre
+        assert enviar(c, "A", "hola").json()["nombre"] == "María José"
 
 
 # ---------------------------------------------------------------- bloqueo

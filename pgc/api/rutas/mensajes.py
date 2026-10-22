@@ -38,7 +38,7 @@ def nuevo_mensaje(datos: Texto, request: Request, sistema=Depends(obtener_sistem
         raise HTTPException(403, str(ex))
     except ValueError as ex:
         raise HTTPException(400, str(ex))
-    return {"id": msg["id"], "texto": msg["texto"], "sesion": sistema.sesion}
+    return {"id": msg["id"], "texto": msg["texto"], "nombre": msg["nombre"], "sesion": sistema.sesion}
 
 
 @router.delete("/api/mensaje/{id_msg}")
