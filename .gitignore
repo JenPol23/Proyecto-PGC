@@ -48,3 +48,22 @@ respaldos/
 capturas/
 Thumbs.db
 desktop.ini
+
+# Entornos y archivos temporales de Python
+.venv/
+__pycache__/
+*.pyc
+
+# Configuración privada
+.env
+
+# Archivos temporales de Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# Grabaciones de entrenamiento
+dataset/
+dataset_alfabeto/
