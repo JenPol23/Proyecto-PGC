@@ -46,7 +46,8 @@ def lanzados(monkeypatch, tmp_path):
     return lista, popen, tmp_path
 
 
-def lanzador(lanzados, python=True, exe=True, listo=lambda url: True, ventanas=None, **ajustes):
+def lanzador(lanzados, python=True, exe=True, listo=lambda url: True, ventanas=None, restos=(), cerrados=None,
+             **ajustes):
     lista, popen, carpeta = lanzados
     (carpeta / "python.exe").write_bytes(b"")
     (carpeta / "LSCKinectFramework.exe").write_bytes(b"")
@@ -56,7 +57,10 @@ def lanzador(lanzados, python=True, exe=True, listo=lambda url: True, ventanas=N
                        pythons=[carpeta / ("python.exe" if python else "no-existe.exe")],
                        exes=[carpeta / ("LSCKinectFramework.exe" if exe else "no-existe.exe")],
                        listo=listo, minimizar=lambda pid: (ventanas if ventanas is not None else [("Kinect", True)]),
-                       espera_detector=2.0)
+                       espera_detector=2.0,
+                       # nunca buscar ni cerrar procesos reales desde las pruebas
+                       buscar_restos=lambda: list(restos),
+                       cerrar=(cerrados.append if cerrados is not None else (lambda pid: None)))
     return l, log
 
 
@@ -173,3 +177,45 @@ def test_se_puede_volver_a_su_servidor_original(lanzados):
     esperar(lambda: len(lista) == 1)
     assert lista[0].comando[-1] == "server_web_svm.py"
     l.detener()
+
+
+def test_cierra_los_restos_antes_de_lanzar(lanzados):
+    lista, _, _ = lanzados
+    cerrados = []
+    restos = [(111, "python.exe", "python.exe -u detector_paralelo.py carpeta"),
+              (112, "python.exe", "python.exe -u server_web_svm.py"),
+              (113, "LSCKinectFramework.exe", "LSCKinectFramework.exe")]
+    l, log = lanzador(lanzados, restos=restos, cerrados=cerrados)
+    l.iniciar()
+    assert cerrados == [111, 112, 113]                      # se cierran ANTES de lanzar los nuevos
+    assert any("restos de una ejecución anterior: 1 app del Kinect, 2 detector" in x for x in log)
+    esperar(lambda: len(lista) == 2)                         # y luego uno de cada uno
+    l.detener()
+
+
+def test_tipos_de_resto():
+    assert procesos.tipo_de_resto("LSCKinectFramework.exe", "") == "app del Kinect"
+    assert procesos.tipo_de_resto("python.exe", "python camara_pc.py --camara 0") == "cámara del PC"
+    assert procesos.tipo_de_resto("python.exe", "python -u detector_paralelo.py carpeta") == "detector"
+
+
+def test_no_arranca_una_segunda_plataforma(monkeypatch, capsys):
+    from pgc import arranque
+    monkeypatch.setattr(arranque, "puerto_en_uso", lambda puerto: True)
+    lanzados = []
+    monkeypatch.setattr(arranque, "crear_lanzador", lambda cfg, log: lanzados.append(1))
+    assert arranque.main(["--simular", "--no-abrir", "--puerto-web", "8799"]) == 3
+    assert lanzados == []                                    # no se tocó nada de la otra plataforma
+    assert "Ya hay una plataforma corriendo" in capsys.readouterr().err
+
+
+def test_buscar_restos_cuenta_el_lanzador_del_entorno_y_su_hijo_como_uno(monkeypatch):
+    import json
+    import types
+    datos = [{"ProcessId": 10, "ParentProcessId": 1, "Name": "python.exe", "CommandLine": "python -u detector_paralelo.py c"},
+             {"ProcessId": 11, "ParentProcessId": 10, "Name": "python.exe", "CommandLine": "python -u detector_paralelo.py c"},
+             {"ProcessId": 12, "ParentProcessId": 1, "Name": "LSCKinectFramework.exe", "CommandLine": "x"},
+             {"ProcessId": 13, "ParentProcessId": 1, "Name": "python.exe", "CommandLine": "python -m pgc"}]
+    monkeypatch.setattr(procesos.os, "name", "nt")
+    monkeypatch.setattr(procesos.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=json.dumps(datos)))
+    assert [r[0] for r in procesos.buscar_restos()] == [10, 12]          # ni el hijo 11 ni la plataforma 13

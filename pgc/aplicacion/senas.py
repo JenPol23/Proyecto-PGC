@@ -122,6 +122,11 @@ class ServicioSenas:
         self.reconocedor.controlar(accion)
         self.al_cambiar()
 
+    def diagnostico(self):
+        """Diagnóstico en vivo del detector (solo para el PC), o None si el reconocedor no lo tiene."""
+        obtener = getattr(self.reconocedor, "diagnostico", None)
+        return obtener() if callable(obtener) else None
+
     def imagen(self):
         """JPEG con los puntos de la mano (solo para el proyector del PC), o None."""
         obtener = getattr(self.reconocedor, "imagen", None)

@@ -32,6 +32,13 @@ class ControlKinect(BaseModel):
 
 class Eco(BaseModel):
     activo: bool
+    cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)
+
+
+class Protocolo(BaseModel):
+    letras: str | None = Field(default=None, pattern=r"^[a-zñ ,]{1,120}$")   # None = todas las del modelo
+    repeticiones: int = Field(default=5, ge=1, le=20)
+    tiempo_max: float = Field(default=8.0, ge=2.0, le=30.0)
 
 
 class Participante(BaseModel):

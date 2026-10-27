@@ -10,6 +10,7 @@ from pgc.aplicacion.cola import ColaDeMensajes
 from pgc.aplicacion.deletreo import Deletreador
 from pgc.aplicacion.estado import instantanea_sistema
 from pgc.aplicacion.participantes import Participantes
+from pgc.aplicacion.protocolo import ServicioProtocolo
 from pgc.aplicacion.senas import ReconocedorNulo, ServicioSenas
 from pgc.dominio.participante import MSG_BLOQUEADO
 
@@ -44,7 +45,7 @@ class ParticipanteBloqueado(Exception):
 
 class Sistema:
     def __init__(self, cfg, mano, voz, tunel, url_local, publicador, log=print, moderador=None, reconocedor=None,
-                 sintetizador=None, reloj=time.monotonic):
+                 sintetizador=None, reloj=time.monotonic, guardar_experimento=None):
         self.cfg = cfg
         self.log = log
         self.sesion = str(int(time.time()))   # cambia en cada arranque del servidor
@@ -66,6 +67,8 @@ class Sistema:
         self.voz_salida = sintetizador or SintetizadorNulo()
         self.eco = cfg.kinect_eco
         self._por_decir = queue.Queue(maxsize=10)
+        # Protocolo de prueba de letras (vista de diagnóstico del PC); guarda en experimentos/
+        self.protocolo = ServicioProtocolo(self.senas, guardar=guardar_experimento, log=log)
         self._locutor = None
         self.deletreador = Deletreador(self._cola, mano, self.notificar, log,
                                        cfg.pausa_letra, cfg.pausa_no_disponible,
@@ -184,7 +187,14 @@ class Sistema:
             self.senas.turno.usar(cliente)
         self.senas.controlar(accion)
 
-    def fijar_eco(self, activo):
+    def fijar_eco(self, activo, cliente=None, presentador=False):
+        """El presentador siempre; un celular, solo si tiene el turno del Kinect (como los demás controles)."""
+        if not presentador:
+            if cliente is None or not self.senas.turno.es_dueno(cliente):
+                raise SinPermisoKinect()
+            if self.participantes.esta_bloqueado(cliente):
+                raise ParticipanteBloqueado()
+            self.senas.turno.usar(cliente)
         self.eco = bool(activo)
         self.log(f"[kinect] Modo eco {'activado' if self.eco else 'desactivado'}")
         self.notificar()

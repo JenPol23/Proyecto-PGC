@@ -36,6 +36,8 @@ class DetectorFalso:
         with self._lock:
             if self.activo:
                 self.texto += letra.upper()
+                self.armado = False
+                self.t_cuadro = time.monotonic()
                 self.estado = "Letra añadida. Retira la mano medio segundo para continuar."
 
     def camara(self, encendida=True):
@@ -68,6 +70,28 @@ class DetectorFalso:
         self.imagen = None                     # detiene el bucle de mantener_camara
         time.sleep(0.2)
         self.imagen, self.t_imagen = imagen, time.monotonic()
+
+    # ---------------------------------------------------------- diagnóstico (lo agrega detector_paralelo.py)
+    con_diagnostico = True
+    manos = 0
+    prediccion = None
+    armado = True
+    t_cuadro = 0.0
+
+    def mostrar(self, letra):
+        """La persona muestra una mano y el SVM predice `letra` (o "sin_letra")."""
+        self.manos, self.prediccion, self.t_cuadro = 1, letra, time.monotonic()
+
+    def retirar(self):
+        self.manos, self.prediccion, self.armado, self.t_cuadro = 0, None, True, time.monotonic()
+
+    def _diagnostico(self):
+        return {"t": self.t_cuadro, "activo": self.activo, "manos": self.manos, "prediccion": self.prediccion,
+                "segunda": "sin_letra" if self.prediccion else None, "margen": 0.8 if self.prediccion else None,
+                "estable_s": 0.0, "confirmaciones": 0, "armado": self.armado, "texto": self.texto,
+                "estado": self.estado, "motivo": "Mano no detectada" if not self.manos else "Confirmando…",
+                "tiempo_confirmacion": 0.7, "tiempo_liberacion": 0.5, "confirmaciones_necesarias": 4,
+                "categorias": list("abcdefghijklmnopqrs") + ["sin_letra"] + list("tuvwxyz")}
 
     def cerrar(self):
         self.imagen = None
@@ -109,6 +133,9 @@ class DetectorFalso:
                     detector.consultas += 1
                     with detector._lock:
                         return self.responder(200, detector._estado().encode("utf-8"))
+                if self.path == "/diagnostico" and detector.con_diagnostico:
+                    import json
+                    return self.responder(200, json.dumps(detector._diagnostico()).encode(), "application/json")
                 if self.path == "/preview.jpg":
                     if detector.imagen is None or time.monotonic() - detector.t_imagen > 3:
                         return self.responder(503, b"Esperando imagen del Kinect")

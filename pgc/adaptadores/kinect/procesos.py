@@ -35,6 +35,51 @@ MINIMIZADA = 7                    # SW_SHOWMINNOACTIVE: la ventana C# no tapa el
 ESPERA_DETECTOR = 60.0            # s máximos esperando al detector antes de abrir la app del Kinect
 
 
+PATRONES_RESTOS = ("detector_paralelo.py", "server_web_svm.py", "camara_pc.py")
+
+
+def buscar_restos():
+    """Detectores, apps del Kinect y cámaras del PC que quedaron corriendo: [(pid, nombre, comando)].
+
+    Solo se llama cuando NO hay otra plataforma corriendo (si la hay, esos procesos son suyos).
+    """
+    if os.name != "nt":
+        return []
+    consulta = ("Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='LSCKinectFramework.exe'\" | "
+                "Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Json -Compress")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", consulta], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        import json
+        datos = json.loads(r.stdout) if r.stdout.strip() else []
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+    datos = [datos] if isinstance(datos, dict) else datos
+    restos = []
+    for d in datos:
+        comando = d.get("CommandLine") or ""
+        if d.get("ProcessId") == os.getpid():
+            continue
+        if d.get("Name") == "LSCKinectFramework.exe" or any(p in comando for p in PATRONES_RESTOS):
+            restos.append((d["ProcessId"], d["Name"], comando, d.get("ParentProcessId")))
+    # El python.exe de un entorno virtual lanza un hijo con el mismo comando: es UN detector, no dos.
+    # Se deja solo el de arriba (cerrarlo con /T cierra también al hijo).
+    pids = {r[0] for r in restos}
+    return [r[:3] for r in restos if r[3] not in pids]
+
+
+def cerrar_proceso(pid):
+    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def tipo_de_resto(nombre, comando):
+    if nombre == "LSCKinectFramework.exe":
+        return "app del Kinect"
+    return "cámara del PC" if "camara_pc.py" in comando else "detector"
+
+
 def detector_listo(url):
     """El detector ya responde (/spell/status). Abrir la app antes es mandarle imágenes a nadie."""
     try:
@@ -81,7 +126,8 @@ def puerto_ocupado(url):
 
 class LanzadorKinect:
     def __init__(self, cfg, log=print, popen=subprocess.Popen, pythons=PYTHONS, exes=EXES,
-                 listo=detector_listo, minimizar=minimizar_ventanas, espera_detector=ESPERA_DETECTOR):
+                 listo=detector_listo, minimizar=minimizar_ventanas, espera_detector=ESPERA_DETECTOR,
+                 buscar_restos=buscar_restos, cerrar=cerrar_proceso):
         self.cfg = cfg
         self.log = log
         self._popen = popen
@@ -90,6 +136,8 @@ class LanzadorKinect:
         self._listo = listo
         self._minimizar = minimizar
         self._espera_detector = espera_detector
+        self._buscar_restos = buscar_restos
+        self._cerrar = cerrar
         self._procesos = {}          # nombre → (Popen, job)
         self._parar = threading.Event()
         self._lock = threading.Lock()
@@ -113,6 +161,7 @@ class LanzadorKinect:
         if not self.cfg.kinect_lanzar or self.cfg.reconocedor != "kinect":
             return
         REGISTROS.mkdir(exist_ok=True)
+        self.cerrar_restos()
         self.python = self.buscar_python()
         if puerto_ocupado(self.cfg.kinect_url):
             self.log(f"[kinect] Ya hay un detector en {self.cfg.kinect_url}: se usa ese")
@@ -141,6 +190,23 @@ class LanzadorKinect:
             self.log(f"[kinect] Detector listo en {time.monotonic() - inicio:.1f} s")
         if not self._parar.is_set():
             self._lanzar_capturador()
+
+    def cerrar_restos(self):
+        """Cierra detectores, apps del Kinect y cámaras que quedaron de una ejecución anterior."""
+        restos = self._buscar_restos()
+        if not restos:
+            return {}
+        cuenta = {}
+        for pid, nombre, comando in restos:
+            tipo = tipo_de_resto(nombre, comando)
+            cuenta[tipo] = cuenta.get(tipo, 0) + 1
+            self._cerrar(pid)
+        self.log("[kinect] Se cerraron restos de una ejecución anterior: "
+                 + ", ".join(f"{n} {t}" for t, n in sorted(cuenta.items())))
+        limite = time.monotonic() + 5                 # que el puerto del detector quede libre
+        while puerto_ocupado(self.cfg.kinect_url) and time.monotonic() < limite:
+            time.sleep(0.2)
+        return cuenta
 
     def _lanzar(self, nombre, comando, cwd, ventana=None):
         info = None

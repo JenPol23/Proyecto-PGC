@@ -257,6 +257,17 @@ class ReconocedorKinect:
                 self.activo = False
             self._sincronizar()
 
+    def diagnostico(self):
+        """Por qué una letra se confirma o no (GET /diagnostico de detector_paralelo.py), o None.
+
+        Su servidor original no lo tiene (404): entonces None y la vista de diagnóstico lo dice.
+        """
+        try:
+            estado, _, cuerpo = self._pedir("/diagnostico")
+            return json.loads(cuerpo.decode("utf-8")) if estado == 200 else None
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+
     def imagen(self):
         """Última imagen JPEG con los puntos de la mano, o None. Pedirla sube el ritmo de actualización."""
         foto = self.imagen_con_estado()

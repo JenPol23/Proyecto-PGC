@@ -37,6 +37,13 @@ def ip_local():
     return acceso.ip_local()
 
 
+def puerto_en_uso(puerto):
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", puerto)) == 0
+
+
 RECONOCEDORES = {"kinect": "pgc.adaptadores.kinect.reconocedor:ReconocedorKinect"}
 
 
@@ -62,6 +69,11 @@ def crear_sintetizador(cfg, log, al_cambiar):
     return SintetizadorCoqui(cfg.voz_salida_modelo, log=log, al_cambiar=al_cambiar)
 
 
+def guardar_experimento(protocolo, info):
+    from pgc.adaptadores.experimentos import guardar        # importa matplotlib: solo si se usa
+    return guardar(protocolo, info)
+
+
 def crear_lanzador(cfg, log):
     from pgc.adaptadores.kinect.procesos import LanzadorKinect
     return LanzadorKinect(cfg, log)
@@ -78,7 +90,8 @@ def construir_sistema(cfg, log=registro.log, *, crear_mano=crear_mano, crear_tra
     sintetizador = crear_sintetizador(cfg, log, publicador.notificar) if cfg.voz_salida else None
     url_local = f"http://{ip_local()}:{cfg.puerto_web}"
     return Sistema(cfg, mano, voz, tunel, url_local, publicador, log, moderador=cargar_moderador(),
-                   reconocedor=crear_reconocedor(cfg, log), sintetizador=sintetizador)
+                   reconocedor=crear_reconocedor(cfg, log), sintetizador=sintetizador,
+                   guardar_experimento=guardar_experimento)
 
 
 def main(argv=None):
@@ -97,6 +110,11 @@ def main(argv=None):
     import uvicorn
     from pgc.api.app import crear_app
 
+    if puerto_en_uso(cfg.puerto_web):
+        # Otra plataforma ya corre (otra ventana de iniciar.bat): sus detector y app no son restos
+        print(f"Ya hay una plataforma corriendo en el puerto {cfg.puerto_web} (¿otra ventana de iniciar.bat?). "
+              "Ciérrala antes de abrir otra.", file=sys.stderr)
+        return 3
     sistema = construir_sistema(cfg)
     app = crear_app(sistema)
     lanzador = crear_lanzador(cfg, registro.log)     # detector + app del Kinect (o cámara del PC)

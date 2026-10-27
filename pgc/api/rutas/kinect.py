@@ -3,13 +3,14 @@
 El estado del Kinect (texto en vivo, detector, turno) NO tiene rutas para
 consultar: llega a todos por el WebSocket. Aquí solo hay órdenes.
 """
+import json
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from pgc.api.dependencias import SIN_CACHE, obtener_sistema
-from pgc.api.esquemas import Cliente, ControlKinect, Eco
+from pgc.api.esquemas import Cliente, ControlKinect, Eco, Protocolo
 from pgc.api.seguridad import es_admin, ip_real, limitar, verificar_admin
 from pgc.aplicacion.senas import SinControles
 from pgc.aplicacion.sistema import ParticipanteBloqueado, SinPermisoKinect
@@ -61,10 +62,55 @@ def liberar_turno(sistema=Depends(obtener_sistema)):
     return {"ok": True}
 
 
-@router.post("/api/kinect/eco", dependencies=[Depends(verificar_admin)])
-def eco(datos: Eco, sistema=Depends(obtener_sistema)):
-    sistema.fijar_eco(datos.activo)
+@router.post("/api/kinect/eco")
+def eco(datos: Eco, request: Request, sistema=Depends(obtener_sistema)):
+    """El presentador (PC con token) o el celular que tiene el turno del Kinect."""
+    presentador = es_admin(request, request.app.state.token_admin)
+    if not presentador and datos.cliente:
+        limitar(request, "kinect", datos.cliente, sistema.cfg.lim_kinect_cliente)
+    try:
+        sistema.fijar_eco(datos.activo, datos.cliente, presentador=presentador)
+    except (SinPermisoKinect, ParticipanteBloqueado) as ex:
+        raise HTTPException(403, str(ex))
     return {"eco": sistema.eco}
+
+
+@router.get("/api/kinect/diagnostico", dependencies=[Depends(verificar_admin)])
+def diagnostico(sistema=Depends(obtener_sistema)):
+    """Por qué una letra se confirma o no, en vivo. Solo en el PC (como la cámara)."""
+    datos = sistema.senas.diagnostico()
+    if datos is None:
+        raise HTTPException(503, "El detector no da diagnóstico (¿Kinect no conectado, o el detector original "
+                                 "con PGC_KINECT_DETECTOR_PARALELO=false?).")
+    return Response(json.dumps(datos, ensure_ascii=False), media_type="application/json", headers=SIN_CACHE)
+
+
+@router.post("/api/kinect/protocolo/iniciar", dependencies=[Depends(verificar_admin)])
+def iniciar_protocolo(datos: Protocolo, sistema=Depends(obtener_sistema)):
+    diag = sistema.senas.diagnostico() or {}
+    del_modelo = [c for c in diag.get("categorias", []) if c != "sin_letra"]
+    letras = [l for l in (datos.letras or "").replace(",", " ").split() if l] or del_modelo
+    fuera = [l for l in letras if del_modelo and l not in del_modelo]
+    if not letras or fuera:
+        raise HTTPException(400, f"Letras que el modelo no tiene: {', '.join(fuera)}" if fuera else
+                                 "No hay letras para probar (¿Kinect no conectado?).")
+    try:
+        sistema.protocolo.iniciar(letras, datos.repeticiones, datos.tiempo_max)
+    except RuntimeError as ex:
+        raise HTTPException(409, str(ex))
+    return sistema.protocolo.estado()
+
+
+@router.post("/api/kinect/protocolo/detener", dependencies=[Depends(verificar_admin)])
+def detener_protocolo(sistema=Depends(obtener_sistema)):
+    sistema.protocolo.detener()
+    return {"ok": True}
+
+
+@router.get("/api/kinect/protocolo", dependencies=[Depends(verificar_admin)])
+def estado_protocolo(sistema=Depends(obtener_sistema)):
+    return Response(json.dumps(sistema.protocolo.estado(), ensure_ascii=False), media_type="application/json",
+                    headers=SIN_CACHE)
 
 
 @router.get("/api/kinect/imagen", dependencies=[Depends(verificar_admin)])
