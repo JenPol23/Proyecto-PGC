@@ -1,4 +1,4 @@
-"""Cámara del PC → detector, igual que la app C# hace con el Kinect (para probar sin Kinect).
+"""Envía la cámara del PC al detector, igual que la app C# hace con el Kinect (para probar sin Kinect).
 
 Toma la cámara con OpenCV, la lleva a 640×480 (la resolución del Kinect v1) y
 envía unas 10 imágenes por segundo en JPEG a POST /detect del detector.
@@ -28,6 +28,10 @@ def abrir(indice):
 
 
 def main():
+    try:                                     # su salida va a registros\camara_pc.log (cp1252 en Windows)
+        sys.stdout.reconfigure(errors="replace")
+    except AttributeError:
+        pass
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--url", default="http://127.0.0.1:8765")
     ap.add_argument("--camara", type=int, default=0)
