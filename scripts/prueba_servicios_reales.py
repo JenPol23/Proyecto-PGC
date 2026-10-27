@@ -1,7 +1,9 @@
-"""Prueba con servicios reales: Whisper (GPU o CPU) y túnel HTTPS de Cloudflare.
+"""Prueba con servicios reales: Whisper (GPU o CPU), voz de salida (Coqui), detector del Kinect y túnel HTTPS.
 
 Necesita internet. La mano va simulada. Genera un audio en español con la voz de
-Windows (System.Speech) y lo transcribe en local y por el túnel.
+Windows (System.Speech) y lo transcribe en local y por el túnel. Comprueba que
+Whisper, Coqui y el detector real (si está .venv-detector) conviven en el mismo
+arranque, y que la cámara del Kinect nunca sale por el túnel.
 
 Uso:  py -3.11 scripts/prueba_servicios_reales.py
 """
@@ -94,6 +96,10 @@ def main():
             d = esperar_estado(lambda d: d["voz"]["estado"] in ("listo", "error"), 180, "Whisper cargó")
             if d:
                 comprobar(d["voz"]["estado"] == "listo", f"Whisper listo en {d['voz']['dispositivo']}")
+            d = esperar_estado(lambda d: d["voz_salida"]["estado"] in ("listo", "error"), 240, "la voz de salida cargó")
+            comprobar(bool(d) and d["voz_salida"]["estado"] == "listo", "voz de salida (Coqui VITS) lista")
+            d = esperar_estado(lambda d: d["kinect"]["conectado"], 60, "el detector del Kinect arrancó")
+            comprobar(bool(d), "detector del Kinect arrancado por la plataforma (necesita .venv-detector)")
             t0 = time.time()
             codigo, cuerpo = transcribir(LOCAL, wav)
             comprobar(codigo == 200 and "jurado" in cuerpo.get("texto", "").lower(),
@@ -113,6 +119,8 @@ def main():
                 comprobar(inicial.get("tipo") == "estado", "WebSocket seguro (wss) por el túnel")
                 r = reintentar(lambda: httpx.post(url + "/api/mano/saltar", timeout=20))
                 comprobar(r.status_code == 403, "saltar por el túnel → 403")
+                r = reintentar(lambda: httpx.get(url + "/api/kinect/imagen", timeout=20))
+                comprobar(r.status_code == 403, "la cámara del Kinect por el túnel → 403")
         finally:
             proceso.terminate()
             try:
@@ -121,8 +129,8 @@ def main():
                 proceso.kill()
             salida.seek(0)
             registro = salida.read().decode("utf-8", errors="replace")
-            print("\n--- log del servidor (voz y túnel) ---")
-            print("\n".join(l for l in registro.splitlines() if "[voz]" in l or "[tunel]" in l))
+            print("\n--- log del servidor (voz, túnel y Kinect) ---")
+            print("\n".join(l for l in registro.splitlines() if "[voz]" in l or "[tunel]" in l or "[kinect]" in l))
     print("\nRESULTADO:", "TODO PASA" if not fallos else f"{len(fallos)} FALLA(N)")
     return 1 if fallos else 0
 
