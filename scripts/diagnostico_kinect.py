@@ -218,10 +218,10 @@ def medir_en_vivo(cfg, lanzador, segundos, sin_capturador):
                      "Abre la app del Kinect (está minimizada en la barra de tareas): debe decir 'Kinect conectado'. "
                      "Si dice 'No se detectó ningún Kinect', revisa el paso 1")
         elif fps < 3:
-            informar("AVISO", f"Llegan pocas imágenes: {fps:.1f} por segundo (lo normal es 5-10)",
+            informar("AVISO", f"Llegan pocas imágenes: {fps:.1f} por segundo (lo normal es 12-18 con la app del 27/10)",
                      "Cierra programas pesados; revisa que el portátil esté conectado a la corriente")
         else:
-            informar("OK", f"Llegan {fps:.1f} imágenes por segundo al detector (lo normal es 5-10)")
+            informar("OK", f"Llegan {fps:.1f} imágenes por segundo al detector (lo normal es 12-18 con la app del 27/10)")
     finally:
         if propio:
             lanzador.detener()

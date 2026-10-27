@@ -192,6 +192,10 @@ Kinect ─► app C# (capturador) ─JPEG POST /detect─► detector :8765 (Med
 - **Control:** un jurado a la vez toma el turno desde su celular; el presentador controla siempre desde el proyector. Reemplaza al código de 8 dígitos (motivos en ARQUITECTURA.md, ADR-9).
 - **Pruebas:** `tests/detector_falso.py` habla igual que su detector; `tests/test_kinect_adaptador.py` y `tests/test_kinect_plataforma.py` lo usan. La prueba de contrato pasa: `py -3.11 -m pytest tests/contratos --reconocedor=pgc.adaptadores.kinect.reconocedor:ReconocedorKinect`.
 
+## 9.1 Cambio de velocidad (27/10/2026)
+
+Con autorización del autor (la sustentación es en su PC): tu app se compila aquí con la espera entre imágenes en **50 ms** (antes 100; es la única línea cambiada de tu código) y tu `server_web_svm.py` se sirve sin cambios con `pgc/adaptadores/kinect/detector_paralelo.py` (lecturas en paralelo). Detalle y mediciones: HANDOFF.md y ARQUITECTURA.md (ADR-10).
+
 ## 10. Lo que queda obsoleto (sin borrar)
 
 `iniciar_pgc_integrado.py` y `acceso_kinect.py` (en la raíz) ya no hacen falta: `iniciar.bat` arranca todo y la pestaña Kinect es parte de la página. **No se borraron ni se modificaron**, y siguen funcionando si alguien los ejecuta (la página del celular conserva las marcas que buscan). Cuando el equipo lo decida, se pueden quitar.

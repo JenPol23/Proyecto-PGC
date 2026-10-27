@@ -458,6 +458,15 @@ Una sola dataclass congelada (`Config`) con **todos** los valores que hoy están
   - El Bluetooth de Windows tiene que estar encendido; si está apagado, el log lo dice.
   - Las pruebas usan una radio BLE falsa que ejecuta el `main.py` real y un bleak falso que habla con ella.
 
+**ADR-10 · Velocidad del Kinect: detector en paralelo y app a 50 ms (27/10/2026)**
+- *Contexto:* medido con el detector real, el proyector mostraba ~3 imágenes/s. Tras optimizar el adaptador (espera larga, estado con cada imagen) quedaba limitado por dos cosas de la parte de Camila: su app espera 100 ms entre imágenes (máx. 10/s) y su detector atiende de a una petición (la vista previa espera a que termine cada imagen).
+- *Decisión (autorizada por el autor; la sustentación es en su PC):*
+  - `pgc/adaptadores/kinect/detector_paralelo.py` sirve su `server_web_svm.py` **sin modificarlo** con `ThreadingHTTPServer`: GET en paralelo; POST de a uno y en orden con un candado (MediaPipe y el deletreo nunca corren en paralelo). `PGC_KINECT_DETECTOR_PARALELO=false` vuelve a su servidor.
+  - **Única línea modificada de su código:** `AddMilliseconds(100)` → `AddMilliseconds(50)` en `MainWindow.xaml.cs`; se compila en Release aquí (VS Build Tools 2022).
+  - El adaptador revisa la imagen cada 15 ms mientras el proyector la muestra (con el detector en paralelo eso no frena a /detect).
+- *Medido (fuente simulada como su app; detector real):* proyector 17,0–17,1 img/s con la fuente a ~17,5 (antes 9,9 de 10 con la app vieja, 3,1 esta mañana); antigüedad 15 ms; desfase estado/imagen ≤ 32 ms. Respaldo con su servidor original: 14,8 img/s, desfase ≤ 94 ms.
+- *Reconocimiento:* las mismas 26 imágenes de prueba dan la misma secuencia de letras con su servidor y con el envoltorio, a 10 y a 20 img/s (su lógica confirma por tiempo).
+
 **ADR-9 · El Kinect de Camila integrado como proceso aparte, con un adaptador (26/10/2026)**
 - *Contexto:* el PR #2 trajo el detector (MediaPipe + SVM) como servidor HTTP en `127.0.0.1:8765`, la app C# que le envía las imágenes, y un lanzador propio (`iniciar_pgc_integrado.py`) que reemplazaba la página del celular desde fuera, consultaba el detector desde **cada celular** (imagen cada 0,2–0,4 s, estado cada 0,7–1 s) y agregaba un segundo sistema de permisos (código de 8 dígitos).
 - *Decisión:*

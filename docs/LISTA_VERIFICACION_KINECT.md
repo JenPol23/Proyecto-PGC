@@ -23,7 +23,7 @@ Marca cada casilla; si algo falla, mira la tabla del final antes de seguir.
 ## C. Diagnóstico (2 minutos)
 
 1. [ ] Doble clic en `diagnostico_kinect.bat`. Durante la medición, pararse frente al Kinect a 1,5–3 m y mostrar una mano.
-2. [ ] Resultado esperado: **0 fallas** y "Llegan 5–10 imágenes por segundo" (la app del 25/10 manda como máximo 10/s: espera 100 ms entre imágenes).
+2. [ ] Resultado esperado: **0 fallas** y "Llegan 12–18 imágenes por segundo" (la app compilada el 27/10 espera 50 ms entre imágenes; la del 25/10, que esperaba 100 ms, está en `respaldos\2026-10-27_app_kinect_debug_25oct`).
 3. [ ] Si hay fallas: seguir la indicación de cada línea (`-> ...`). El informe queda en `registros\diagnostico_kinect.txt`.
 
 ## D. Arranque completo
@@ -37,7 +37,7 @@ Marca cada casilla; si algo falla, mira la tabla del final antes de seguir.
 ## E. Prueba de reconocimiento (desde el proyector)
 
 1. [ ] Pie del proyector → **Kinect: Iniciar**. El centro cambia a la vista Kinect con la imagen de la cámara (grande) y los puntos de la mano.
-   - [ ] La imagen se mueve con fluidez (unas 10 por segundo) y el texto y el estado bajo ella cambian **a la vez** que la imagen.
+   - [ ] La imagen se mueve con fluidez (unas 15–17 por segundo) y el texto y el estado bajo ella cambian **a la vez** que la imagen.
    - [ ] Si se desconecta el USB del Kinect, en ~1,5 s el proyector dice "No conectado" (no se queda con una imagen congelada).
 2. [ ] Hacer una letra fácil (A, E, O, L, V) y mantenerla ~1 s: aparece en grande. Retirar la mano medio segundo entre letras.
 3. [ ] Probar una palabra corta: **H O L A**.
