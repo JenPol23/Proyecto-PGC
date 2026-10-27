@@ -93,7 +93,7 @@ def test_instantanea_estructura(crear_sistema):
     assert d["tunel"] == {"estado": "apagado", "url": None}
     assert d["url_local"] == d["url_publica"] == "http://192.168.0.10:8000"
     assert set(d["kinect"]) == {"estado", "detalle", "texto", "conectado", "camara", "activo", "controles",
-                                "frases", "turno", "eco"}                                  # Kinect integrado
+                                "frases", "turno", "eco", "codigo", "codigo_version"}      # Kinect integrado
     assert d["kinect"]["estado"] == "apagado" and d["kinect"]["turno"] is None and d["kinect"]["eco"] is False
     assert d["voz_salida"] == {"estado": "desactivado"}
     assert d["max_caracteres"] == 60

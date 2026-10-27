@@ -77,6 +77,14 @@
   .invita { font-size: clamp(18px, 3vh, 34px); font-weight: 600; line-height: 1.2; letter-spacing: -.01em;
     margin: 2.6vh 0 .8vh; max-width: 13em; text-wrap: balance; }
   .url { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); overflow-wrap: anywhere; }
+  /* código para tomar el turno del Kinect desde un celular (solo lo ve quien está en la sala) */
+  .codigo-kinect { display: flex; align-items: baseline; justify-content: space-between; gap: .8vw; margin-top: 1.6vh;
+    padding: .9vh 1vw; border-radius: 1.4vh; background: var(--acento-suave); box-shadow: inset 0 0 0 1px var(--linea); }
+  .codigo-kinect span { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); }
+  .codigo-kinect b { font-size: clamp(22px, 3.6vh, 44px); font-weight: 700; line-height: 1.1; letter-spacing: .06em;
+    color: var(--acento); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .izq.con-codigo .qr { max-width: 26vh; }
+  .izq.con-codigo .estados { padding-top: 2vh; }
   .estados { margin: auto 0 0; padding-top: 3vh; display: grid; grid-template-columns: auto 1fr;
     gap: 1.2vh 1.4vw; font-size: clamp(13px, 1.9vh, 21px); }
   .estados dt { color: var(--texto-2); display: flex; align-items: center; gap: .6em; }
@@ -229,6 +237,10 @@
     <div class="qr"><img id="qr" alt="Código QR para abrir la página en el celular"></div>
     <div class="invita">Escanea y escribe o habla a la mano</div>
     <div id="url" class="url"></div>
+    <div id="kinCodigoCaja" class="codigo-kinect" hidden>
+      <span>Código del Kinect</span>
+      <b id="kinCodigo">——————</b>
+    </div>
     <dl class="estados">
       <dt><span id="pMano" class="punto"></span>Mano</dt><dd id="eMano">—</dd>
       <dt><span id="pVoz" class="punto"></span>Voz</dt><dd id="eVoz">—</dd>
@@ -290,6 +302,7 @@
     <button type="button" data-kin="terminar" title="Dice la frase en voz alta (y, con el eco, la mano la deletrea)">Terminar y decir</button>
     <button id="kinEco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
     <button id="kinLiberar" type="button" title="Quita el control del Kinect al celular que lo tiene" disabled>Liberar turno</button>
+    <button id="kinNuevoCodigo" type="button" title="Código nuevo para tomar el turno; quien lo tenía lo pierde" hidden>Cambiar código</button>
     <button id="kinDiagnostico" type="button" title="Por qué una letra se confirma o no, y el protocolo de prueba (solo en este PC)">Diagnóstico</button>
   </div>
   <div class="controles">
@@ -525,6 +538,22 @@
     $("#kinEco").textContent = "Eco: " + (k.eco ? "sí" : "no");
     $("#kinEco").classList.toggle("encendido", !!k.eco);
     $("#kinLiberar").disabled = !k.turno;
+    // Código del turno: lo pide solo este PC (con el token); el WebSocket solo dice si cambió
+    const conCodigo = !!(TOKEN && k.controles && k.codigo);
+    $("#kinCodigoCaja").hidden = !conCodigo;
+    document.querySelector(".izq").classList.toggle("con-codigo", conCodigo);
+    $("#kinNuevoCodigo").hidden = !conCodigo;
+    if (conCodigo && k.codigo_version !== versionCodigo) pedirCodigo(k.codigo_version);
+  }
+  let versionCodigo = null;
+  const ponerCodigo = (c) => { $("#kinCodigo").textContent = c ? c.slice(0, 3) + " " + c.slice(3) : "——————"; };
+  async function pedirCodigo(version) {
+    versionCodigo = version;
+    try {
+      const r = await fetch("/api/kinect/codigo", { headers: { "X-PGC-Admin": TOKEN }, cache: "no-store" });
+      if (r.ok) ponerCodigo((await r.json()).codigo);
+      else versionCodigo = null;
+    } catch (e) { versionCodigo = null; }
   }
   // La cámara solo se pide en el PC del proyector (el servidor la niega por el túnel o la red).
   // Pide "la imagen siguiente a la última que mostré" (?despues=N): el servidor responde apenas existe,
@@ -582,6 +611,11 @@
     b.addEventListener("click", () => ordenKinect({ accion: b.dataset.kin })));
   $("#kinEco").addEventListener("click", () => ordenKinect({ activo: !ecoActivo }, "/api/kinect/eco"));
   $("#kinLiberar").addEventListener("click", () => ordenKinect({}, "/api/kinect/liberar"));
+  $("#kinNuevoCodigo").addEventListener("click", async () => {
+    const r = await adminJSON("/api/kinect/codigo", {}).catch(() => null);
+    if (r && r.ok) { const d = await r.json(); versionCodigo = d.version; ponerCodigo(d.codigo); avisoAdmin("Código nuevo para el Kinect"); }
+    else avisoAdmin("No se pudo cambiar el código.");
+  });
   $("#kinDiagnostico").addEventListener("click", () => window.open("/diagnostico", "_blank"));
 
   // ---------- derecha: cola y recientes

@@ -31,6 +31,8 @@ def mensaje_validacion(errores, cfg):
             return "Escribe tu mensaje de nuevo, por favor."
         if campo == "cliente":
             return "Recarga la página e intenta de nuevo."
+        if campo == "codigo":
+            return "Escribe el código de 6 dígitos que muestra el proyector."
         if campo == "nombre":
             return "Usa solo letras en tu nombre (máximo 20)."
         if campo == "audio":

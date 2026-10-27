@@ -66,6 +66,7 @@ class Config:
     kinect_exe: str = ""                   # LSCKinectFramework.exe; vacío = buscarlo en bin/Release o bin/Debug
     kinect_camara: int = 0                 # cámara del PC para kinect_capturador=camara_pc
     kinect_turno_segundos: float = 120.0   # el turno de un celular se libera tras este tiempo sin usarlo
+    kinect_codigo: bool = True             # para tomar el turno hay que escribir el código de 6 dígitos del proyector
     kinect_eco: bool = False               # modo eco al arrancar: la mano repite lo que reconoce el Kinect
     lim_kinect_cliente: int = 60           # controles del Kinect por minuto y celular
     # --- seguridad

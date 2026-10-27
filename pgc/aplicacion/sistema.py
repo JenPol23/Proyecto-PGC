@@ -63,7 +63,8 @@ class Sistema:
         # Kinect → texto → voz (y, en modo eco, → mano)
         self.senas = ServicioSenas(reconocedor or ReconocedorNulo(), al_frase=self._frase_reconocida,
                                    al_cambiar=self.notificar, log=log, moderador=moderador,
-                                   turno_segundos=cfg.kinect_turno_segundos, reloj=reloj)
+                                   turno_segundos=cfg.kinect_turno_segundos, reloj=reloj,
+                                   turno_codigo=cfg.kinect_codigo)
         self.voz_salida = sintetizador or SintetizadorNulo()
         self.eco = cfg.kinect_eco
         self._por_decir = queue.Queue(maxsize=10)
@@ -161,11 +162,12 @@ class Sistema:
         self.deletreador.iniciar()
 
     # ----------------------------------------------------------- Kinect
-    def tomar_turno_kinect(self, cliente):
+    def tomar_turno_kinect(self, cliente, codigo=None):
         autor = self.participantes.obtener(cliente)
         if autor["bloqueado"]:
             raise ParticipanteBloqueado()
-        self.senas.turno.tomar(cliente, autor["pid"], autor["nombre"])    # TurnoOcupado si lo tiene otro
+        # TurnoOcupado si lo tiene otro; CodigoIncorrecto si no es el del proyector
+        self.senas.turno.tomar(cliente, autor["pid"], autor["nombre"], codigo)
         self.notificar()
 
     def soltar_turno_kinect(self, cliente):
@@ -176,6 +178,14 @@ class Sistema:
         if self.senas.turno.liberar():
             self.log("[kinect] El presentador liberó el turno")
             self.notificar()
+
+    def regenerar_codigo_kinect(self):
+        """Código nuevo en el proyector; quien tenía el turno lo pierde."""
+        codigo = self.senas.turno.regenerar_codigo()
+        if codigo:
+            self.log("[kinect] El presentador cambió el código del turno")
+            self.notificar()
+        return codigo
 
     def controlar_kinect(self, accion, cliente=None, presentador=False):
         """El presentador siempre; un celular, solo si tiene el turno y no está bloqueado."""

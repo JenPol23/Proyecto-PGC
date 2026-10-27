@@ -489,6 +489,12 @@ Una sola dataclass congelada (`Config`) con **todos** los valores que hoy están
   - El estado de "Kinect no conectado" cubre tres casos: falta el entorno del detector, el detector no responde o no llegan imágenes (app C# cerrada o Kinect desconectado).
   - El detector no expone confianza ni latencia; los eventos llevan `confianza=1.0` hasta que su `/spell/status` las incluya (pedido en CONTRATO_KINECT.md §8).
 
+**ADR-12 · Código del proyector para tomar el turno del Kinect (27/10/2026)**
+- *Contexto:* el autor pidió que la pestaña Kinect del celular se viera y funcionara como el diseño de Camila, incluido su campo «Código del PC», pero sin perder el turno de ADR-9 (punto 3).
+- *Decisión:* el turno sigue siendo de un solo celular, con liberación por inactividad, liberación por el presentador y pérdida al ser bloqueado. Para **tomarlo** hay que escribir un código de **6 dígitos** que muestra el proyector (`secrets`, nuevo en cada arranque). El presentador lo regenera con «Cambiar código» (`POST /api/kinect/codigo`, con token), y quien tenía el turno lo pierde. El código **no** va en el estado del WebSocket (solo `codigo: true|false` y `codigo_version`, para que el proyector sepa cuándo pedirlo con `GET /api/kinect/codigo`, con token). `PGC_KINECT_CODIGO=false` vuelve al botón sin código.
+- *Por qué:* prueba que quien controla está en la sala (el enlace del túnel puede circular fuera de ella), sin crear un segundo sistema de permisos: el código es solo la llave para tomar el mismo turno. Adivinarlo: 1 entre 10⁶, con un límite de 30 intentos por minuto e IP, además del límite por celular.
+- *Pruebas:* `tests/test_kinect_codigo.py`.
+
 ---
 
 ## B. Seguridad
@@ -546,7 +552,7 @@ Lo que ya está bien y se conserva (todo cubierto por pruebas):
   3. encabezado `X-PGC-Admin` igual al token, comparado con `secrets.compare_digest`.
 - Por qué basta el encabezado propio contra CSRF: un sitio ajeno no puede enviar `X-PGC-Admin` sin una verificación previa (*preflight*) de CORS, y CORS está cerrado. Tampoco puede leer el token, porque no puede leer la respuesta de `/pantalla` desde otro origen.
 - Respuesta: 403 con el mismo mensaje de hoy ("Solo desde el PC del proyector.").
-- Con el Kinect (ADR-9), las mismas condiciones protegen `GET /api/kinect/imagen` (la cámara), `POST /api/kinect/eco` y `POST /api/kinect/liberar`. `POST /api/kinect/control` acepta al presentador con token o al celular que tiene el turno.
+- Con el Kinect (ADR-9), las mismas condiciones protegen `GET /api/kinect/imagen` (la cámara), `POST /api/kinect/eco`, `POST /api/kinect/liberar` y `GET|POST /api/kinect/codigo` (ADR-12). `POST /api/kinect/control` acepta al presentador con token o al celular que tiene el turno.
 
 **M2 · Validación de entrada con pydantic**
 - `texto`: `str`, `max_length=200` en el cuerpo. Se rechazan los caracteres de control. El límite de 60 después de recortar los bordes se mantiene, con su mensaje actual.
@@ -574,7 +580,7 @@ Lo que ya está bien y se conserva (todo cubierto por pruebas):
   | `POST /api/mensaje` | 20/min | 6/min |
   | `POST /api/transcribir` | 10/min | 4/min |
   | `POST /api/previa` | 240/min | — |
-  | `POST /api/kinect/control` y `/turno` | 120/min | 60/min |
+  | `POST /api/kinect/control` y `/turno` | 120/min (y `/turno` 30/min: código del proyector) | 60/min |
   | Resto | 300/min | — |
 
 - **Kinect con varios celulares (26/10/2026):** el lanzador de Camila hacía que cada celular consultara el detector (unas 66 peticiones/min en cualquier pestaña y unas 216/min con la pestaña Kinect abierta); con 2 celulares en la pestaña Kinect detrás de la misma IP (el WiFi de la universidad por el túnel) se pasaba de 300/min y llegaban 429 **incluso al enviar mensajes**. Ahora la pestaña Kinect no hace ninguna petición (0 en 10 s, medido en Edge) y el servidor consulta el detector a ritmo fijo.

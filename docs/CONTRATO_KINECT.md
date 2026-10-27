@@ -190,7 +190,7 @@ Kinect ─► app C# (capturador) ─JPEG POST /detect─► detector :8765 (Med
 - **Terminar:** el adaptador recoge las letras pendientes, emite `fin` y deja en blanco su texto (`POST /spell/clear`). La frase se dice con la voz de la plataforma (Coqui, por los parlantes del PC) y, con el modo eco, la mano la deletrea.
 - **Estados:** sin detector o sin imágenes → `"error"` con "Kinect no conectado"; reconociendo con la mano a la vista → `"listo"`; detenido o sin mano → `"sin_persona"`. El detalle es su propia línea de `Estado:` ("Posible letra: A | Estable: 0.4 s").
 - **JSON (pedido):** si `/spell/status` devuelve `{"texto": "HOLA", "estado": "…", "activo": true, "confianza": 0.93, "latencia_ms": 120}`, el adaptador lo usa sin cambios. El texto plano actual sigue funcionando.
-- **Control:** un jurado a la vez toma el turno desde su celular; el presentador controla siempre desde el proyector. Reemplaza al código de 8 dígitos (motivos en ARQUITECTURA.md, ADR-9).
+- **Control:** un jurado a la vez toma el turno desde su celular; el presentador controla siempre desde el proyector. Reemplaza al código de 8 dígitos (motivos en ARQUITECTURA.md, ADR-9); desde el 27/10/2026, para tomar el turno se escribe el código de 6 dígitos que muestra el proyector (ADR-12, `PGC_KINECT_CODIGO`).
 - **Pruebas:** `tests/detector_falso.py` habla igual que su detector; `tests/test_kinect_adaptador.py` y `tests/test_kinect_plataforma.py` lo usan. La prueba de contrato pasa: `py -3.11 -m pytest tests/contratos --reconocedor=pgc.adaptadores.kinect.reconocedor:ReconocedorKinect`.
 
 ## 9.1 Cambio de velocidad (27/10/2026)

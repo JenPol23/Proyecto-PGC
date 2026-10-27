@@ -34,7 +34,7 @@ class ReconocedorNulo:
 
 class ServicioSenas:
     def __init__(self, reconocedor, al_frase=None, al_cambiar=None, log=print, moderador=None,
-                 turno_segundos=120.0, reloj=time.monotonic):
+                 turno_segundos=120.0, reloj=time.monotonic, turno_codigo=False):
         self.reconocedor = reconocedor
         self.moderador = moderador      # la frase pasa por el mismo filtro que los mensajes
         self.al_frase = al_frase or (lambda texto: None)
@@ -42,7 +42,7 @@ class ServicioSenas:
         self.log = log
         self.texto = ""                 # frase en construcción
         self.frases = []                # frases terminadas en esta sesión (las últimas 10)
-        self.turno = TurnoKinect(turno_segundos, reloj)
+        self.turno = TurnoKinect(turno_segundos, reloj, con_codigo=turno_codigo)
         self._eventos = queue.Queue(maxsize=500)
         self._iniciado = False
 
@@ -149,4 +149,6 @@ class ServicioSenas:
                 "activo": bool(getattr(r, "activo", False)),
                 "controles": self.tiene_controles,
                 "frases": self.frases[-3:],
-                "turno": self.turno.instantanea()}
+                "turno": self.turno.instantanea(),
+                # Si hace falta el código del proyector y su versión, NUNCA el código (esto va a los celulares)
+                "codigo": self.turno.con_codigo, "codigo_version": self.turno.version_codigo}

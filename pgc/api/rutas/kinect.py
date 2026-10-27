@@ -10,21 +10,23 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from pgc.api.dependencias import SIN_CACHE, obtener_sistema
-from pgc.api.esquemas import Cliente, ControlKinect, Eco, Protocolo
+from pgc.api.esquemas import Cliente, ControlKinect, Eco, Protocolo, TomarTurno
 from pgc.api.seguridad import es_admin, ip_real, limitar, verificar_admin
 from pgc.aplicacion.senas import SinControles
 from pgc.aplicacion.sistema import ParticipanteBloqueado, SinPermisoKinect
-from pgc.aplicacion.turno import TurnoOcupado
+from pgc.aplicacion.turno import CodigoIncorrecto, TurnoOcupado
 
 router = APIRouter()
 
 
 @router.post("/api/kinect/turno")
-def tomar_turno(datos: Cliente, request: Request, sistema=Depends(obtener_sistema)):
+def tomar_turno(datos: TomarTurno, request: Request, sistema=Depends(obtener_sistema)):
     limitar(request, "kinect", datos.cliente, sistema.cfg.lim_kinect_cliente)
+    # Adivinar el código: 1 entre un millón y, por IP, unos 30 intentos por minuto
+    limitar(request, "kinect-turno-ip", ip_real(request), 30)
     try:
-        sistema.tomar_turno_kinect(datos.cliente)
-    except ParticipanteBloqueado as ex:
+        sistema.tomar_turno_kinect(datos.cliente, datos.codigo)
+    except (ParticipanteBloqueado, CodigoIncorrecto) as ex:
         raise HTTPException(403, str(ex))
     except TurnoOcupado as ex:
         raise HTTPException(409, str(ex))
@@ -60,6 +62,23 @@ def controlar(datos: ControlKinect, request: Request, sistema=Depends(obtener_si
 def liberar_turno(sistema=Depends(obtener_sistema)):
     sistema.liberar_turno_kinect()
     return {"ok": True}
+
+
+@router.get("/api/kinect/codigo", dependencies=[Depends(verificar_admin)])
+def ver_codigo(sistema=Depends(obtener_sistema)):
+    """El código para tomar el turno: solo el proyector lo recibe (con el token), nunca por el WebSocket."""
+    turno = sistema.senas.turno
+    return Response(json.dumps({"activo": turno.con_codigo, "codigo": turno.codigo,
+                                "version": turno.version_codigo}), media_type="application/json", headers=SIN_CACHE)
+
+
+@router.post("/api/kinect/codigo", dependencies=[Depends(verificar_admin)])
+def regenerar_codigo(sistema=Depends(obtener_sistema)):
+    if not sistema.senas.turno.con_codigo:
+        raise HTTPException(409, "El código está desactivado (PGC_KINECT_CODIGO=false).")
+    codigo = sistema.regenerar_codigo_kinect()
+    return Response(json.dumps({"activo": True, "codigo": codigo, "version": sistema.senas.turno.version_codigo}),
+                    media_type="application/json", headers=SIN_CACHE)
 
 
 @router.post("/api/kinect/eco")

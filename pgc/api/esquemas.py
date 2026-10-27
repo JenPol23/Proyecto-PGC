@@ -25,6 +25,11 @@ class Cliente(BaseModel):
     cliente: str = Field(pattern=PATRON_CLIENTE)
 
 
+class TomarTurno(BaseModel):
+    cliente: str = Field(pattern=PATRON_CLIENTE)
+    codigo: str | None = Field(default=None, max_length=12)    # el del proyector (con PGC_KINECT_CODIGO=true)
+
+
 class ControlKinect(BaseModel):
     accion: Literal["iniciar", "detener", "espacio", "borrar", "limpiar", "terminar"]
     cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)

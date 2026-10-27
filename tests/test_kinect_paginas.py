@@ -1,5 +1,6 @@
 """Pestaña Kinect del celular y vista Kinect del proyector (contenido de las páginas)."""
 import importlib
+import re
 import sys
 
 import pytest
@@ -25,12 +26,15 @@ def test_el_celular_ya_no_dice_siguiente_fase(carpeta_web):
 
 
 def test_guardar_y_leer_no_dependen_del_turno(carpeta_web):
-    """Los espectadores también guardan y leen: esos botones están fuera del bloque de controles con turno."""
+    """Los espectadores también guardan y leen: esos botones no son controles del deletreo (data-kin),
+    que son los únicos que el turno apaga."""
     html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
-    mios = html[html.index('<div id="kinMios"'):html.index('<div id="avisoKinect"')]
-    propio = html[html.index('<div class="kin-propio">'):html.index('<p id="kinModo"')]
-    assert 'id="kinGuardar"' in propio and 'id="kinLeer"' in propio and 'id="kinCallar"' in propio
-    assert "kinGuardar" not in mios and 'data-kin="limpiar"' in mios
+    botones = html[html.index('<div id="kinMios"'):html.index('<p id="kinVoz"')]
+    for id_ in ("kinGuardar", "kinLeer", "kinCallar"):
+        boton = re.search(rf'<button id="{id_}"[^>]*>', botones).group(0)
+        assert "data-kin" not in boton, id_
+    assert 'data-kin="limpiar"' in botones
+    assert 'querySelectorAll("[data-kin]")' in html and "!puede" in html
 
 
 @pytest.mark.parametrize("pagina", ["movil.html", "pantalla.html"])

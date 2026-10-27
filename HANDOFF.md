@@ -47,16 +47,16 @@ Camila, la pestaña Kinect que diseñaste para el celular (la que servía `inici
 | Tu pestaña | Ahora en `movil.html` |
 |---|---|
 | Texto deletreado y estado del detector ("Deletreo detenido.", "Posible letra…", "Letra añadida…") | Igual, en vivo por el WebSocket (los celulares no consultan el detector) |
-| Activar control / Volver a espectador (con el código del PC) | **Activar control** / **Volver a espectador** con el turno: un solo celular a la vez, se libera solo tras 2 minutos sin usarlo; el presentador lo puede liberar desde el proyector |
+| Activar control / Volver a espectador (con el código del PC) | **Código del PC** + **Activar control** / **Volver a espectador**, con su diseño (texto grande arriba, estado debajo, botones en cuadrícula). El código es de 6 dígitos, lo muestra el proyector y da el turno: un solo celular a la vez, se libera solo tras 2 minutos sin usarlo; el presentador lo puede liberar (ADR-12; `PGC_KINECT_CODIGO=false` lo quita) |
 | "Modo espectador." / "Control del teléfono activo (hasta 2 horas)." | "Modo espectador." / "Control del teléfono activo (se libera solo tras 2 minutos sin usarlo)." |
 | Iniciar, Detener, Espacio, Borrar, Limpiar | Iguales, solo para quien tiene el turno (Limpiar borra todo el texto, sin decirlo) |
 | Guardar TXT | Igual (`texto_lsc.txt`), **para todos**, también los espectadores: descarga el texto en curso o, si ya se terminó, la última frase |
 | Leer frase / Detener voz (voz del navegador) | Iguales, **para todos**, con tus mensajes ("Leyendo...", "Lectura terminada.", "Lectura detenida.", "No hay una voz en español disponible…"); prefiere una voz de Colombia |
-| Ver código / Revocar teléfonos y cambiar código | Reemplazados por **Liberar turno** en el proyector del PC |
+| Ver código / Revocar teléfonos y cambiar código | El código se ve siempre en el proyector del PC; **Cambiar código** genera otro y quita el turno; **Liberar turno** se lo quita a quien lo tenga |
 | Imagen de la cámara en el celular | **No**: por privacidad (Ley 1581), la cámara solo se ve en el proyector del PC (ADR-9) |
 | — | Nuevo: **Terminar y decirlo** (la frase se dice por los parlantes del PC con Coqui y, con el modo eco, la mano la deletrea) |
 
-Tu lanzador `iniciar_pgc_integrado.py` no se modificó y sigue funcionando, pero ya no hace falta.
+Tu lanzador `iniciar_pgc_integrado.py` no se modificó y sigue funcionando, pero ya no hace falta. Resumen completo para ti: `docs/PARA_CAMILA.md`.
 
 ## Requisitos de hardware y red
 
