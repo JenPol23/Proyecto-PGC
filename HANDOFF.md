@@ -31,6 +31,15 @@ Proyecto de grado (sustentación final). Dos partes que se integran en una sola 
 5. Sin Kinect, con la cámara del PC: poner `PGC_KINECT_CAPTURADOR=camara_pc` en el `.env`.
 6. Pruebas: `py -3.11 -m pytest`.
 
+## Cambio en tu código: espera de 100 a 50 ms en la app del Kinect (27/10/2026)
+
+Camila: la sustentación es en el PC de Jean Paul, así que hicimos aquí los cambios de velocidad (él te avisó). **Solo se cambió una línea de tu código**: en `integracion_kinect/capturador/LSCKinectFramework/MainWindow.xaml.cs`, `DateTime.UtcNow.AddMilliseconds(100)` pasó a `AddMilliseconds(50)`.
+
+- **Por qué:** con 100 ms tu app mandaba como máximo 10 imágenes por segundo, y la vista previa del proyector no podía pasar de ahí. Con 50 ms llegan unas 17 por segundo (el resto lo limita el tiempo que tarda el detector en procesar cada imagen, ~50 ms).
+- **Reconocimiento:** tu lógica confirma letras por tiempo (≥ 0,7 s estable y ≥ 4 imágenes; retirar la mano 0,5 s), así que con más imágenes por segundo reconoce las mismas letras. Lo comprobamos con 26 imágenes de prueba: misma secuencia de letras con 10 y con 20 imágenes por segundo.
+- **Compilación:** Release, con Visual Studio Build Tools 2022, en `bin\Release` (fuera de git). Tu `.exe` del 25/10 (Debug) quedó guardado en `respaldos\2026-10-27_app_kinect_debug_25oct`.
+- **Tu detector no se modificó:** `server_web_svm.py` se usa tal cual, envuelto por `pgc/adaptadores/kinect/detector_paralelo.py`, que lo sirve con `ThreadingHTTPServer` (la vista previa y el estado ya no esperan a que termine cada imagen; las peticiones POST siguen de a una y en orden, como en tu servidor). Para volver a tu servidor original: `PGC_KINECT_DETECTOR_PARALELO=false` en el `.env`.
+
 ## Pestaña Kinect de Camila: incorporada en `web/movil.html` (27/10/2026)
 
 Camila, la pestaña Kinect que diseñaste para el celular (la que servía `iniciar_pgc_integrado.py`) ya es parte de la página normal (`web/movil.html`), **con todas sus funciones**, el diseño de la plataforma y el turno de un jurado a la vez en lugar del código de 8 dígitos:
