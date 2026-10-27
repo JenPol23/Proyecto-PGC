@@ -65,6 +65,7 @@ def test_lanza_detector_y_app_del_kinect_y_los_cierra(lanzados):
     app = next(p for p in lista if p.comando[0].endswith("LSCKinectFramework.exe"))
     assert detector.comando[0] == str(carpeta / "python.exe")
     assert detector.kw["cwd"] == str(procesos.DETECTOR)                 # su carpeta, sus archivos, tal cual
+    assert detector.kw["env"]["PYTHONDONTWRITEBYTECODE"] == "1"           # sin __pycache__ en su carpeta
     assert app.kw["startupinfo"] is None or app.kw["startupinfo"].wShowWindow == procesos.MINIMIZADA
     l.detener()
     assert all(p.terminado.is_set() for p in lista)

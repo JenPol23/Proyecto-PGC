@@ -11,6 +11,7 @@ Si algo falta, se avisa en el registro y la plataforma sigue: el celular y el
 proyector dicen "Kinect no conectado".
 Los archivos de integracion_kinect/ se usan tal cual; nada aquí los modifica.
 """
+import os
 import socket
 import subprocess
 import threading
@@ -47,6 +48,7 @@ class LanzadorKinect:
         self._exes = exes
         self._procesos = {}          # nombre → (Popen, job)
         self._parar = threading.Event()
+        self._lock = threading.Lock()
         self.python = self.exe = None
 
     # ------------------------------------------------------------ búsqueda
@@ -88,10 +90,15 @@ class LanzadorKinect:
             info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             info.wShowWindow = ventana
         salida = open(REGISTROS / f"{nombre}.log", "ab")
-        proc = self._popen([str(c) for c in comando], cwd=str(cwd), stdout=salida, stderr=subprocess.STDOUT,
-                           stdin=subprocess.DEVNULL, creationflags=banderas, startupinfo=info)
-        salida.close()                       # el hijo ya tiene su copia
-        self._procesos[nombre] = (proc, atar_al_proceso_actual(proc))
+        # Sin __pycache__: nada se escribe dentro de integracion_kinect/ (sus archivos se usan tal cual)
+        entorno = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        with self._lock:                     # detener() no debe colarse entre crear y registrar el proceso
+            proc = self._popen([str(c) for c in comando], cwd=str(cwd), stdout=salida, stderr=subprocess.STDOUT,
+                               stdin=subprocess.DEVNULL, creationflags=banderas, startupinfo=info, env=entorno)
+            salida.close()                   # el hijo ya tiene su copia
+            self._procesos[nombre] = (proc, atar_al_proceso_actual(proc))
+            if self._parar.is_set():         # nació después de detener(): se cierra ya
+                proc.terminate()
         return proc
 
     def _vigilar_detector(self):
@@ -133,11 +140,13 @@ class LanzadorKinect:
 
     # ------------------------------------------------------------ cierre
     def detener(self):
-        self._parar.set()
-        for proc, _ in list(self._procesos.values()):
+        with self._lock:
+            self._parar.set()
+            procesos = list(self._procesos.values())
+        for proc, _ in procesos:
             if proc.poll() is None:
                 proc.terminate()
-        for proc, _ in list(self._procesos.values()):
+        for proc, _ in procesos:
             try:
                 proc.wait(5)
             except subprocess.TimeoutExpired:
