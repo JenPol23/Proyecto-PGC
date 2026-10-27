@@ -2,6 +2,8 @@
 
 Recibe los componentes ya armados (mano, voz, túnel); quien los crea es pgc/arranque.py.
 """
+import queue
+import threading
 import time
 
 from pgc.aplicacion.cola import ColaDeMensajes
@@ -10,6 +12,27 @@ from pgc.aplicacion.estado import instantanea_sistema
 from pgc.aplicacion.participantes import Participantes
 from pgc.aplicacion.senas import ReconocedorNulo, ServicioSenas
 from pgc.dominio.participante import MSG_BLOQUEADO
+
+CLIENTE_KINECT = "kinect"        # el "celular" del modo eco: sus mensajes van a la cola como los demás
+AUTOR_KINECT = {"pid": None, "nombre": "Kinect"}
+
+
+class SintetizadorNulo:
+    """Sin voz de salida: cumple el puerto y no dice nada."""
+    estado = "desactivado"
+
+    def cargar_en_segundo_plano(self):
+        pass
+
+    def decir(self, texto):
+        pass
+
+
+class SinPermisoKinect(Exception):
+    """Solo quien tiene el turno (o el presentador) controla el Kinect."""
+
+    def __init__(self):
+        super().__init__("Toma el control del Kinect para usar estos botones.")
 
 
 class ParticipanteBloqueado(Exception):
@@ -20,7 +43,8 @@ class ParticipanteBloqueado(Exception):
 
 
 class Sistema:
-    def __init__(self, cfg, mano, voz, tunel, url_local, publicador, log=print, moderador=None, reconocedor=None):
+    def __init__(self, cfg, mano, voz, tunel, url_local, publicador, log=print, moderador=None, reconocedor=None,
+                 sintetizador=None, reloj=time.monotonic):
         self.cfg = cfg
         self.log = log
         self.sesion = str(int(time.time()))   # cambia en cada arranque del servidor
@@ -35,9 +59,14 @@ class Sistema:
         self._cola = ColaDeMensajes(cfg.max_pendientes_cliente, cfg.max_cola, cfg.historial, cfg.max_caracteres,
                                     al_cambiar=self.notificar, log=log, moderador=moderador,
                                     log_textos=cfg.log_textos)
-        # Kinect (fase 2+): por ahora solo recibe frases; la pantalla y el eco llegan en las fases 4–5
+        # Kinect → texto → voz (y, en modo eco, → mano)
         self.senas = ServicioSenas(reconocedor or ReconocedorNulo(), al_frase=self._frase_reconocida,
-                                   al_cambiar=self.notificar, log=log, moderador=moderador)
+                                   al_cambiar=self.notificar, log=log, moderador=moderador,
+                                   turno_segundos=cfg.kinect_turno_segundos, reloj=reloj)
+        self.voz_salida = sintetizador or SintetizadorNulo()
+        self.eco = cfg.kinect_eco
+        self._por_decir = queue.Queue(maxsize=10)
+        self._locutor = None
         self.deletreador = Deletreador(self._cola, mano, self.notificar, log,
                                        cfg.pausa_letra, cfg.pausa_no_disponible,
                                        simular=cfg.mano == "simulada", autodeteccion_cada=cfg.autodeteccion_cada)
@@ -69,9 +98,11 @@ class Sistema:
         return self.tunel.url or self.url_local
 
     def instantanea(self):
+        kinect = {**self.senas.instantanea(), "eco": self.eco}
         return instantanea_sistema(self.sesion, self.mano, self.voz, self.tunel, self.url_local,
                                    self.url_publica, self.cfg.max_caracteres, self._cola,
-                                   self.participantes.bloqueados())
+                                   self.participantes.bloqueados(), kinect=kinect,
+                                   voz_salida=self.voz_salida.estado)
 
     # ----------------------------------------------------------- operaciones
     def notificar(self):
@@ -101,8 +132,10 @@ class Sistema:
         cancelados = self._cola.cancelar_de_cliente(cliente)
         actual = self._cola.actual
         saltado = bool(actual and actual["cliente"] == cliente and self._cola.saltar_actual())
+        sin_turno = self.senas.turno.soltar(cliente)     # tampoco sigue controlando el Kinect
         self.log(f"[participantes] {pid}: {cancelados} pendiente(s) cancelado(s)"
-                 + ("; se saltó el mensaje en curso" if saltado else ""))
+                 + ("; se saltó el mensaje en curso" if saltado else "")
+                 + ("; perdió el turno del Kinect" if sin_turno else ""))
         self.notificar()
         return {"cancelados": cancelados, "saltado": saltado}
 
@@ -124,5 +157,62 @@ class Sistema:
     def iniciar_trabajador(self):
         self.deletreador.iniciar()
 
+    # ----------------------------------------------------------- Kinect
+    def tomar_turno_kinect(self, cliente):
+        autor = self.participantes.obtener(cliente)
+        if autor["bloqueado"]:
+            raise ParticipanteBloqueado()
+        self.senas.turno.tomar(cliente, autor["pid"], autor["nombre"])    # TurnoOcupado si lo tiene otro
+        self.notificar()
+
+    def soltar_turno_kinect(self, cliente):
+        if self.senas.turno.soltar(cliente):
+            self.notificar()
+
+    def liberar_turno_kinect(self):
+        if self.senas.turno.liberar():
+            self.log("[kinect] El presentador liberó el turno")
+            self.notificar()
+
+    def controlar_kinect(self, accion, cliente=None, presentador=False):
+        """El presentador siempre; un celular, solo si tiene el turno y no está bloqueado."""
+        if not presentador:
+            if cliente is None or not self.senas.turno.es_dueno(cliente):
+                raise SinPermisoKinect()
+            if self.participantes.esta_bloqueado(cliente):
+                raise ParticipanteBloqueado()
+            self.senas.turno.usar(cliente)
+        self.senas.controlar(accion)
+
+    def fijar_eco(self, activo):
+        self.eco = bool(activo)
+        self.log(f"[kinect] Modo eco {'activado' if self.eco else 'desactivado'}")
+        self.notificar()
+
     def _frase_reconocida(self, frase):
+        """'fin' del Kinect: la frase se dice en los parlantes y, en modo eco, la mano la deletrea."""
         self.log(f"[kinect] Frase reconocida ({len(frase)} caracteres)")
+        self._decir(frase)
+        if self.eco:
+            try:
+                self._cola.encolar(frase, CLIENTE_KINECT, self.mano.letras, AUTOR_KINECT)
+            except ValueError as ex:          # p. ej. ninguna letra que la mano pueda hacer
+                self.log(f"[kinect] Eco: la frase no va a la mano ({ex})")
+
+    def _decir(self, frase):
+        """La voz va en su propio hilo: decir() bloquea mientras habla y no debe frenar al Kinect."""
+        if self._locutor is None:
+            self._locutor = threading.Thread(target=self._hablar, daemon=True, name="voz-salida")
+            self._locutor.start()
+        try:
+            self._por_decir.put_nowait(frase)
+        except queue.Full:
+            self.log("[voz] Demasiadas frases por decir; se omite una")
+
+    def _hablar(self):
+        while True:
+            frase = self._por_decir.get()
+            try:
+                self.voz_salida.decir(frase)
+            except Exception as ex:           # la voz nunca tumba el servidor
+                self.log(f"[voz] No se pudo decir la frase: {type(ex).__name__}")

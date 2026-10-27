@@ -223,6 +223,8 @@ def configuracion(simular=True, puerto=None, puerto_web=8000, sin_tunel=False, s
     if puerto:
         argv += ["--puerto", puerto]
     cfg = config.cargar(argv, entorno={}, archivo_env=RAIZ / "tests" / "no-existe.env")
+    # Sin Kinect real ni voz de salida salvo que la prueba los pida (con un detector falso o un sintetizador falso)
+    ajustes = {"reconocedor": "simulado", "voz_salida": False, "kinect_lanzar": False, **ajustes}
     return replace(cfg, pausa_letra=0, pausa_no_disponible=0, **ajustes)
 
 

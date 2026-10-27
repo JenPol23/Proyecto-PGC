@@ -38,7 +38,8 @@ class Publicador:
         self.suscriptores.discard(q)
 
 
-def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_caracteres, cola, bloqueados=()):
+def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_caracteres, cola, bloqueados=(),
+                        kinect=None, voz_salida="desactivado"):
     actual, pendientes, historial = cola.instantanea()
     return {
         "tipo": "estado",
@@ -49,7 +50,9 @@ def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_ca
         "tunel": {"estado": tunel.estado, "url": tunel.url},
         "url_local": url_local,
         "url_publica": url_publica,
-        "kinect": {"estado": "pendiente"},
+        "voz_salida": {"estado": voz_salida},
+        # estado, detalle, texto en curso, conectado/camara/activo, frases, turno (pid y nombre) y eco
+        "kinect": kinect or {"estado": "apagado"},
         "max_caracteres": max_caracteres,
         "actual": actual,
         "cola": pendientes,

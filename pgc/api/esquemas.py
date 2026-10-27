@@ -1,5 +1,6 @@
 """Modelos de entrada de la API (pydantic)."""
 import unicodedata
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -18,6 +19,19 @@ class Texto(BaseModel):
     cliente: str = Field(default="anonimo", pattern=PATRON_CLIENTE)
 
     _validar_texto = field_validator("texto")(sin_caracteres_de_control)
+
+
+class Cliente(BaseModel):
+    cliente: str = Field(pattern=PATRON_CLIENTE)
+
+
+class ControlKinect(BaseModel):
+    accion: Literal["iniciar", "detener", "espacio", "borrar", "terminar"]
+    cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)
+
+
+class Eco(BaseModel):
+    activo: bool
 
 
 class Participante(BaseModel):
