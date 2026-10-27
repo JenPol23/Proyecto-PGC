@@ -67,3 +67,6 @@ __pycache__/
 # Grabaciones de entrenamiento
 dataset/
 dataset_alfabeto/
+# Entorno del detector (sus versiones no caben en el Python de la plataforma) y registros de los procesos del Kinect
+.venv-detector/
+registros/
