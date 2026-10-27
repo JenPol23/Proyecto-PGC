@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="pgc-admin" content="">
+<title>Diagnóstico del Kinect · Mano bidireccional LSC</title>
+<script>
+  try { var t = localStorage.getItem("tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root {
+    --fondo: #FFFFFF; --superficie: #F4F6F5; --linea: #E4E8E6;
+    --texto: #141917; --texto-2: #4F5854; --texto-3: #7A837F;
+    --acento: #00482B; --acento-suave: #EEF6F2; --punto-ok: #1A7A55;
+    --aviso: #A86A00; --error: #C2362B; --placa-logo: transparent;
+    --fuente: "Segoe UI Variable Text", -apple-system, system-ui, Roboto, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+      --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+      --acento: #74BA9A; --acento-suave: #0F2A1F; --punto-ok: #74BA9A;
+      --aviso: #E2B04A; --error: #EE7A6E; --placa-logo: #F4F6F5; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+    --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+    --acento: #74BA9A; --acento-suave: #0F2A1F; --punto-ok: #74BA9A;
+    --aviso: #E2B04A; --error: #EE7A6E; --placa-logo: #F4F6F5; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto); }
+  body { font-family: var(--fuente); padding: 20px 28px 32px; -webkit-font-smoothing: antialiased; }
+  header { display: flex; align-items: center; gap: 12px; }
+  .placa { background: var(--placa-logo); border-radius: 8px; padding: 3px 4px; display: grid; }
+  .placa img { height: 40px; display: block; }
+  .pgc { font-size: 12px; font-weight: 600; color: var(--acento); border: 1.5px solid var(--acento); border-radius: 999px; padding: 2px 9px; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  header .derecha { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  a, .boton { font: inherit; font-size: 14px; color: var(--texto-2); background: transparent; border: 1px solid var(--linea);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; text-decoration: none; }
+  .boton:hover:not(:disabled), a:hover { color: var(--texto); border-color: var(--texto-3); }
+  .boton:disabled { opacity: .45; cursor: default; }
+  .boton.principal { background: var(--acento); color: var(--fondo); border-color: var(--acento); font-weight: 600; }
+  main { display: grid; grid-template-columns: minmax(420px, 1.1fr) 1fr; gap: 28px; margin-top: 20px; }
+  .tarjeta { background: var(--superficie); border-radius: 16px; padding: 18px 20px; }
+  h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: .04em; }
+  #cam { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--linea); display: block; }
+  .fila-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .datos { display: grid; grid-template-columns: auto 1fr; gap: 10px 18px; align-items: center; font-size: 17px; }
+  .datos dt { color: var(--texto-2); font-size: 14px; }
+  .datos dd { margin: 0; }
+  .punto { display: inline-block; width: .65em; height: .65em; border-radius: 50%; margin-right: .4em; background: var(--texto-3); }
+  .punto.ok { background: var(--punto-ok); } .punto.aviso { background: var(--aviso); } .punto.error { background: var(--error); }
+  .glifo { font-size: 64px; font-weight: 700; line-height: 1; color: var(--acento); text-transform: uppercase; }
+  .glifo.sin { color: var(--texto-3); font-size: 28px; text-transform: none; }
+  .barra { position: relative; height: 12px; border-radius: 6px; background: var(--linea); overflow: hidden; }
+  .barra > span { position: absolute; inset: 0 auto 0 0; background: var(--acento); border-radius: 6px; transition: width .1s linear; }
+  .barra.aviso > span { background: var(--aviso); }
+  .nota { font-size: 13px; color: var(--texto-3); }
+  .motivo { margin-top: 16px; padding: 14px 16px; border-radius: 12px; font-size: 22px; font-weight: 600; background: var(--fondo); }
+  .motivo.ok { color: var(--punto-ok); } .motivo.aviso { color: var(--aviso); } .motivo.error { color: var(--error); }
+  .texto-detector { font-size: 26px; font-weight: 600; letter-spacing: .05em; min-height: 1.2em; }
+  .protocolo { margin-top: 28px; }
+  .config { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; font-size: 14px; color: var(--texto-2); }
+  .config label { display: grid; gap: 4px; }
+  .config input { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--linea);
+    background: var(--fondo); color: var(--texto); }
+  .config input[name=letras] { width: 360px; }
+  .config input[type=number] { width: 80px; }
+  .pedido { margin-top: 18px; font-size: 44px; font-weight: 700; letter-spacing: -.01em; min-height: 1.2em; }
+  .pedido.retirar { color: var(--texto-2); font-size: 32px; }
+  .progreso { color: var(--texto-2); }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--linea); }
+  th { color: var(--texto-2); font-weight: 600; }
+  .acierto { color: var(--punto-ok); } .confusion { color: var(--aviso); } .no_detectada { color: var(--error); }
+  .sin-token { margin-top: 40px; font-size: 20px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="placa"><img src="/logo-udec.png" alt="Universidad de Cundinamarca"></div>
+  <span class="pgc">PGC</span>
+  <h1>Diagnóstico del Kinect</h1>
+  <div class="derecha">
+    <a href="/pantalla">Volver al proyector</a>
+    <button id="btnTema" class="boton" type="button">Tema</button>
+  </div>
+</header>
+
+<p id="sinToken" class="sin-token" hidden>Esta vista solo funciona en el PC del proyector: abre <b>http://127.0.0.1:8000/diagnostico</b> allí.</p>
+
+<main id="principal">
+  <section class="tarjeta">
+    <h2>Cámara</h2>
+    <img id="cam" alt="Cámara del Kinect con los puntos de la mano">
+    <div class="fila-botones">
+      <button class="boton" type="button" data-kin="iniciar">Iniciar deletreo</button>
+      <button class="boton" type="button" data-kin="detener">Detener</button>
+      <button class="boton" type="button" data-kin="limpiar">Limpiar</button>
+    </div>
+    <p class="nota">Texto del detector:</p>
+    <div id="texto" class="texto-detector"></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>En vivo</h2>
+    <dl class="datos">
+      <dt>Mano</dt><dd id="mano">—</dd>
+      <dt>Letra posible</dt><dd><span id="letra" class="glifo sin">—</span></dd>
+      <dt>Segunda opción</dt><dd id="segunda">—</dd>
+      <dt>Margen</dt><dd><div class="barra"><span id="margenBarra" style="width:0"></span></div>
+        <span id="margen" class="nota">—</span> <span class="nota">· diferencia entre la 1.ª y la 2.ª letra según el SVM (no es una probabilidad: su modelo no la calcula)</span></dd>
+      <dt>Estable</dt><dd><div id="estableCaja" class="barra aviso"><span id="estableBarra" style="width:0"></span></div>
+        <span id="estable" class="nota">—</span></dd>
+      <dt>Imágenes</dt><dd id="imagenes">—</dd>
+      <dt>Lista para otra letra</dt><dd id="armado">—</dd>
+      <dt>Deletreo</dt><dd id="activo">—</dd>
+    </dl>
+    <div id="motivo" class="motivo">Conectando…</div>
+    <p id="estadoDetector" class="nota"></p>
+  </section>
+</main>
+
+<section id="protocolo" class="tarjeta protocolo">
+  <h2>Protocolo de prueba de letras</h2>
+  <form id="formProtocolo" class="config">
+    <label>Letras (vacío = todas las del modelo)<input name="letras" autocomplete="off" placeholder="a b c d e …"></label>
+    <label>Repeticiones<input name="repeticiones" type="number" min="1" max="20" value="5"></label>
+    <label>Máx. por intento (s)<input name="tiempo" type="number" min="2" max="30" step="0.5" value="8"></label>
+    <button id="btnProtocolo" class="boton principal" type="submit">Iniciar protocolo</button>
+    <button id="btnDetenerProtocolo" class="boton" type="button" disabled>Detener</button>
+  </form>
+  <div id="pedido" class="pedido"></div>
+  <div id="progreso" class="progreso"></div>
+  <div id="avisoProtocolo" class="nota"></div>
+  <table id="tablaUltimos" hidden>
+    <thead><tr><th>Pedida</th><th>Intento</th><th>Resultado</th><th>Reconocida</th><th>Tiempo (s)</th><th>Con mano</th><th>Lo que más pasó</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="final" hidden>
+    <p id="finalResumen"></p>
+    <table id="tablaFinal">
+      <thead><tr><th>Letra</th><th>Aciertos</th><th>Confusiones</th><th>No detectadas</th><th>Tiempo medio (s)</th><th>Causa probable</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const TOKEN = document.querySelector('meta[name="pgc-admin"]').content;
+  const cab = { "X-PGC-Admin": TOKEN };
+  if (!TOKEN) { $("#principal").hidden = true; $("#protocolo").hidden = true; $("#sinToken").hidden = false; return; }
+
+  // ---------- tema
+  const raiz = document.documentElement;
+  $("#btnTema").addEventListener("click", () => {
+    const oscuro = (raiz.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+    raiz.dataset.theme = oscuro ? "light" : "dark";
+    try { localStorage.setItem("tema", raiz.dataset.theme); } catch (e) {}
+  });
+
+  const post = (ruta, cuerpo) => fetch(ruta, { method: "POST", headers: { ...cab, "Content-Type": "application/json" },
+    body: JSON.stringify(cuerpo || {}) });
+  document.querySelectorAll("[data-kin]").forEach((b) =>
+    b.addEventListener("click", () => post("/api/kinect/control", { accion: b.dataset.kin })));
+
+  // ---------- en vivo
+  function clasificar(motivo) {
+    if (!motivo) return "";
+    if (motivo.startsWith("Letra confirmada") || motivo.startsWith("Confirmando")) return "ok";
+    if (motivo.startsWith("Mano no detectada") || motivo.startsWith("Más de una") || motivo.startsWith("Puntos")
+        || motivo.includes("sin letra")) return "error";
+    return "aviso";
+  }
+  function pintar(d) {
+    const manos = d.manos;
+    $("#mano").textContent = "";
+    const p = document.createElement("span");
+    p.className = "punto " + (manos === 1 ? "ok" : manos ? "aviso" : "error");
+    $("#mano").append(p, manos === 1 ? "1 mano" : manos ? manos + " manos (debe ser una)" : "No detectada");
+    const letra = d.prediccion;
+    $("#letra").className = "glifo" + (letra && letra !== "sin_letra" ? "" : " sin");
+    $("#letra").textContent = letra ? (letra === "sin_letra" ? "sin letra" : letra) : "—";
+    $("#segunda").textContent = d.segunda ? (d.segunda === "sin_letra" ? "sin letra" : d.segunda.toUpperCase()) : "—";
+    $("#margen").textContent = d.margen == null ? "—" : d.margen.toFixed(2);
+    $("#margenBarra").style.width = d.margen == null ? "0" : Math.min(100, d.margen * 50) + "%";
+    const tc = d.tiempo_confirmacion || 0.7;
+    $("#estable").textContent = (d.estable_s || 0).toFixed(1) + " de " + tc + " s";
+    $("#estableBarra").style.width = Math.min(100, 100 * (d.estable_s || 0) / tc) + "%";
+    $("#estableCaja").className = "barra" + ((d.estable_s || 0) >= tc ? "" : " aviso");
+    $("#imagenes").textContent = (d.confirmaciones || 0) + " de " + (d.confirmaciones_necesarias || 4);
+    $("#armado").textContent = d.armado ? "Sí" : "No: retira la mano " + (d.tiempo_liberacion || 0.5) + " s";
+    $("#activo").textContent = d.activo ? "Iniciado" : "Detenido";
+    $("#motivo").className = "motivo " + clasificar(d.motivo);
+    $("#motivo").textContent = d.motivo || "—";
+    $("#texto").textContent = d.texto || "";
+    $("#estadoDetector").textContent = "Estado del detector: " + (d.estado || "—") +
+      (d.edad_ms != null ? " · última imagen hace " + d.edad_ms + " ms" : "");
+  }
+  async function bucleDiagnostico() {
+    for (;;) {
+      try {
+        const r = await fetch("/api/kinect/diagnostico", { headers: cab, cache: "no-store" });
+        if (r.ok) pintar(await r.json());
+        else {
+          const e = await r.json().catch(() => ({}));
+          $("#motivo").className = "motivo error";
+          $("#motivo").textContent = e.detail || "Sin diagnóstico";
+        }
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, 100));
+    }
+  }
+
+  // ---------- cámara (la siguiente imagen apenas existe)
+  let cuadro = null, urlCam = null;
+  async function bucleCamara() {
+    for (;;) {
+      let pausa = 300;
+      try {
+        const r = await fetch("/api/kinect/imagen" + (cuadro === null ? "" : "?despues=" + cuadro), { headers: cab, cache: "no-store" });
+        if (r.ok) {
+          pausa = r.headers.has("X-Kinect-Cuadro") ? 0 : 200;
+          const nuevo = r.headers.get("X-Kinect-Cuadro");
+          if (nuevo !== cuadro) {
+            cuadro = nuevo;
+            const url = URL.createObjectURL(await r.blob());
+            $("#cam").src = url;
+            if (urlCam) URL.revokeObjectURL(urlCam);
+            urlCam = url;
+          }
+        }
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, pausa));
+    }
+  }
+
+  // ---------- protocolo
+  const RESULTADOS = { acierto: "Acierto", confusion: "Confundida", no_detectada: "No detectada" };
+  const resultadoDe = (it) => it.reconocida == null ? "no_detectada" : it.reconocida === it.letra ? "acierto" : "confusion";
+  function celda(fila, texto, clase) { const td = document.createElement("td"); td.textContent = texto; if (clase) td.className = clase; fila.appendChild(td); }
+  function pintarProtocolo(e) {
+    const corriendo = e.fase === "pedir" || e.fase === "retirar";
+    $("#btnProtocolo").disabled = corriendo;
+    $("#btnDetenerProtocolo").disabled = !corriendo;
+    $("#pedido").className = "pedido" + (e.fase === "retirar" ? " retirar" : "");
+    $("#pedido").textContent = e.fase === "pedir" ? "Haz la letra " + e.letra.toUpperCase() + " · intento " + e.intento + " de " + e.repeticiones
+      : e.fase === "retirar" ? "Retira la mano" : e.fase === "terminado" ? "Protocolo terminado" : e.fase === "detenido" ? "Protocolo detenido" : "";
+    $("#progreso").textContent = e.total ? e.hecho + " de " + e.total + " intentos" : "";
+    $("#avisoProtocolo").textContent = e.error ? "Error: " + e.error : e.carpeta ? "Resultados guardados en " + e.carpeta : "";
+    const ult = e.ultimos || [];
+    $("#tablaUltimos").hidden = !ult.length;
+    const cuerpo = $("#tablaUltimos tbody");
+    cuerpo.textContent = "";
+    ult.forEach((it) => {
+      const fila = document.createElement("tr");
+      const r = resultadoDe(it);
+      celda(fila, it.letra.toUpperCase()); celda(fila, it.intento); celda(fila, RESULTADOS[r], r);
+      celda(fila, it.reconocida ? it.reconocida.toUpperCase() : "—"); celda(fila, it.tiempo_s != null ? it.tiempo_s : "—");
+      celda(fila, it.mano_pct + " %"); celda(fila, it.motivo_frecuente || "—");
+      cuerpo.appendChild(fila);
+    });
+    const inf = e.informe;
+    $("#final").hidden = !inf;
+    if (inf) {
+      $("#finalResumen").textContent = "Exactitud: " + inf.exactitud_pct + " % (" + inf.aciertos + " de " + inf.intentos + ")" +
+        (inf.tiempo_medio_s ? " · tiempo medio hasta confirmar: " + inf.tiempo_medio_s + " s" : "") +
+        (inf.fallan.length ? " · fallan: " + inf.fallan.map((l) => l.toUpperCase()).join(", ") : "");
+      const tf = $("#tablaFinal tbody");
+      tf.textContent = "";
+      inf.por_letra.forEach((f) => {
+        const fila = document.createElement("tr");
+        celda(fila, f.letra.toUpperCase()); celda(fila, f.aciertos + "/" + f.intentos);
+        celda(fila, Object.entries(f.confusiones).map(([k, v]) => k.toUpperCase() + "×" + v).join(", ") || "—");
+        celda(fila, f.no_detectadas); celda(fila, f.tiempo_medio_s != null ? f.tiempo_medio_s : "—");
+        celda(fila, (inf.causas[f.letra] || {}).texto || "—");
+        tf.appendChild(fila);
+      });
+    }
+  }
+  async function bucleProtocolo() {
+    for (;;) {
+      try {
+        const r = await fetch("/api/kinect/protocolo", { headers: cab, cache: "no-store" });
+        if (r.ok) pintarProtocolo(await r.json());
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, 300));
+    }
+  }
+  $("#formProtocolo").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget;
+    const r = await post("/api/kinect/protocolo/iniciar", {
+      letras: f.letras.value.trim().toLowerCase() || null,
+      repeticiones: Number(f.repeticiones.value), tiempo_max: Number(f.tiempo.value) });
+    if (!r.ok) $("#avisoProtocolo").textContent = "No se pudo iniciar: " + ((await r.json().catch(() => ({}))).detail || r.status);
+  });
+  $("#btnDetenerProtocolo").addEventListener("click", () => post("/api/kinect/protocolo/detener"));
+
+  bucleDiagnostico();
+  bucleCamara();
+  bucleProtocolo();
+})();
+</script>
+</body>
+</html>

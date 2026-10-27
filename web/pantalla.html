@@ -286,9 +286,11 @@
     <button type="button" data-kin="detener">Detener</button>
     <button type="button" data-kin="espacio">Espacio</button>
     <button type="button" data-kin="borrar">Borrar</button>
+    <button type="button" data-kin="limpiar">Limpiar</button>
     <button type="button" data-kin="terminar" title="Dice la frase en voz alta (y, con el eco, la mano la deletrea)">Terminar y decir</button>
     <button id="kinEco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
     <button id="kinLiberar" type="button" title="Quita el control del Kinect al celular que lo tiene" disabled>Liberar turno</button>
+    <button id="kinDiagnostico" type="button" title="Por qué una letra se confirma o no, y el protocolo de prueba (solo en este PC)">Diagnóstico</button>
   </div>
   <div class="controles">
     <span id="avisoAdmin" class="aviso-admin" role="status"></span>
@@ -580,6 +582,7 @@
     b.addEventListener("click", () => ordenKinect({ accion: b.dataset.kin })));
   $("#kinEco").addEventListener("click", () => ordenKinect({ activo: !ecoActivo }, "/api/kinect/eco"));
   $("#kinLiberar").addEventListener("click", () => ordenKinect({}, "/api/kinect/liberar"));
+  $("#kinDiagnostico").addEventListener("click", () => window.open("/diagnostico", "_blank"));
 
   // ---------- derecha: cola y recientes
   function pintarCola(cola) {
