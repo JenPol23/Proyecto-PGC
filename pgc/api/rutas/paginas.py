@@ -31,6 +31,12 @@ def pagina_pantalla(request: Request):
     return pagina("pantalla.html", request, con_token=True)
 
 
+@router.get("/diagnostico")
+def pagina_diagnostico(request: Request):
+    # Vista de diagnóstico del Kinect: solo el navegador del PC recibe el token (por el túnel no funciona)
+    return pagina("diagnostico.html", request, con_token=True)
+
+
 @router.get("/logo-udec.png")
 def logo():
     return FileResponse(CARPETA_WEB / "logo-udec.png")

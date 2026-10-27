@@ -77,6 +77,14 @@
   .invita { font-size: clamp(18px, 3vh, 34px); font-weight: 600; line-height: 1.2; letter-spacing: -.01em;
     margin: 2.6vh 0 .8vh; max-width: 13em; text-wrap: balance; }
   .url { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); overflow-wrap: anywhere; }
+  /* código para tomar el turno del Kinect desde un celular (solo lo ve quien está en la sala) */
+  .codigo-kinect { display: flex; align-items: baseline; justify-content: space-between; gap: .8vw; margin-top: 1.6vh;
+    padding: .9vh 1vw; border-radius: 1.4vh; background: var(--acento-suave); box-shadow: inset 0 0 0 1px var(--linea); }
+  .codigo-kinect span { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); }
+  .codigo-kinect b { font-size: clamp(22px, 3.6vh, 44px); font-weight: 700; line-height: 1.1; letter-spacing: .06em;
+    color: var(--acento); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .izq.con-codigo .qr { max-width: 26vh; }
+  .izq.con-codigo .estados { padding-top: 2vh; }
   .estados { margin: auto 0 0; padding-top: 3vh; display: grid; grid-template-columns: auto 1fr;
     gap: 1.2vh 1.4vw; font-size: clamp(13px, 1.9vh, 21px); }
   .estados dt { color: var(--texto-2); display: flex; align-items: center; gap: .6em; }
@@ -172,6 +180,33 @@
   .aviso-admin { font-size: clamp(12px, 1.6vh, 17px); color: var(--texto-2); margin-right: .4vw; }
   .aviso-admin button { border: 0; padding: 0 .2em; color: var(--acento); font-weight: 600; text-decoration: underline; }
 
+  [hidden] { display: none !important; }
+
+  /* kinect: lo que se deletrea con señas */
+  #vKinect { align-self: stretch; justify-content: center; gap: 1.4vh; }
+  /* Con la cámara a la vista, la imagen manda: ocupa casi todo el centro y el texto se achica */
+  #vKinect.con-camara { gap: 1vh; }
+  #vKinect.con-camara .kin-camara { height: 58vh; }
+  #vKinect.con-camara .kin-texto { font-size: clamp(26px, 6.5vh, 80px); }
+  #vKinect.con-camara .kin-detalle { font-size: clamp(14px, 2.1vh, 24px); }
+  .kin-camara { height: 34vh; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 1.6vh;
+    background: var(--superficie); }
+  .kin-texto { max-width: 100%; min-height: 1.1em; font-size: clamp(30px, 9vh, 110px); font-weight: 600; line-height: 1.1;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--texto); overflow-wrap: anywhere; }
+  .kin-texto:empty::before { content: "Haz una letra frente al Kinect"; font-size: .42em; font-weight: 500;
+    letter-spacing: 0; text-transform: none; color: var(--texto-3); }
+  .kin-texto.vivo:not(:empty)::after { content: ""; display: inline-block; width: .06em; height: .9em; margin-left: .08em;
+    vertical-align: -.08em; border-radius: 2px; background: var(--acento); animation: parpadeo 1s steps(2) infinite; }
+  @keyframes parpadeo { 50% { opacity: 0; } }
+  .kin-detalle { min-height: 1.3em; font-size: clamp(15px, 2.4vh, 28px); color: var(--texto-2); }
+  .kin-frase { min-height: 1.3em; font-size: clamp(14px, 2.2vh, 26px); color: var(--texto-2); }
+  .kin-frase b { color: var(--texto); font-weight: 600; }
+  .kin-tira { margin-top: 1.6vh; min-height: 1.3em; font-size: clamp(14px, 2.2vh, 26px); color: var(--texto-2); }
+  .kin-tira b { color: var(--texto); font-weight: 600; letter-spacing: .04em; }
+  .grupos { display: flex; flex-direction: column; align-items: flex-end; gap: .9vh; flex: none; }
+  .controles .etq { font-size: clamp(12px, 1.6vh, 17px); color: var(--texto-3); margin-right: .2vw; }
+  .controles button.encendido { color: var(--acento); border-color: var(--acento); font-weight: 600; }
+
   .desconectado { position: fixed; top: 0; left: 0; right: 0; z-index: 5; padding: .9vh; text-align: center;
     background: var(--error); color: var(--sobre-error); font-weight: 600; font-size: clamp(13px, 1.8vh, 20px);
     transform: translateY(-100%); transition: transform .3s ease; }
@@ -202,6 +237,10 @@
     <div class="qr"><img id="qr" alt="Código QR para abrir la página en el celular"></div>
     <div class="invita">Escanea y escribe o habla a la mano</div>
     <div id="url" class="url"></div>
+    <div id="kinCodigoCaja" class="codigo-kinect" hidden>
+      <span>Código del Kinect</span>
+      <b id="kinCodigo">——————</b>
+    </div>
     <dl class="estados">
       <dt><span id="pMano" class="punto"></span>Mano</dt><dd id="eMano">—</dd>
       <dt><span id="pVoz" class="punto"></span>Voz</dt><dd id="eVoz">—</dd>
@@ -223,6 +262,14 @@
       <div id="detalle" class="detalle"></div>
       <div id="palabra" class="palabra"><div id="marca" class="marca"></div></div>
       <div id="notaNd" class="nota-nd"></div>
+      <div id="kinTira" class="kin-tira"></div>
+    </div>
+    <div id="vKinect" class="vista oculta">
+      <div id="kinRotulo" class="rotulo">Kinect</div>
+      <img id="kinCamara" class="kin-camara" alt="Cámara del Kinect con los puntos de la mano" hidden>
+      <div id="kinTexto" class="kin-texto"></div>
+      <div id="kinDetalle" class="kin-detalle"></div>
+      <div id="kinFrase" class="kin-frase"></div>
     </div>
   </section>
 
@@ -244,11 +291,26 @@
     Jean Paul Miranda Díaz, Lina Tatiana Maldonado Rivera, Paula Camila Enríquez Galindo, Jean Harry Raigozo<br>
     Ingeniería de Sistemas y Computación, Universidad de Cundinamarca, extensión Facatativá
   </p>
+  <div id="grupos" class="grupos">
+  <div id="ctrlKinect" class="controles" hidden>
+    <span class="etq">Kinect</span>
+    <button type="button" data-kin="iniciar">Iniciar</button>
+    <button type="button" data-kin="detener">Detener</button>
+    <button type="button" data-kin="espacio">Espacio</button>
+    <button type="button" data-kin="borrar">Borrar</button>
+    <button type="button" data-kin="limpiar">Limpiar</button>
+    <button type="button" data-kin="terminar" title="Dice la frase en voz alta (y, con el eco, la mano la deletrea)">Terminar y decir</button>
+    <button id="kinEco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
+    <button id="kinLiberar" type="button" title="Quita el control del Kinect al celular que lo tiene" disabled>Liberar turno</button>
+    <button id="kinNuevoCodigo" type="button" title="Código nuevo para tomar el turno; quien lo tenía lo pierde" hidden>Cambiar código</button>
+    <button id="kinDiagnostico" type="button" title="Por qué una letra se confirma o no, y el protocolo de prueba (solo en este PC)">Diagnóstico</button>
+  </div>
   <div class="controles">
     <span id="avisoAdmin" class="aviso-admin" role="status"></span>
     <button id="btnBloquear" type="button" title="Pausa a esta persona durante la sesión y cancela sus mensajes en espera" disabled>Bloquear participante</button>
     <button id="btnSaltar" type="button" title="Cancela el mensaje en curso y deja la mano abierta" disabled>Saltar mensaje</button>
     <button id="btnReconectar" type="button" title="Volver a buscar la mano por USB">Reconectar mano</button>
+  </div>
   </div>
 </footer>
 
@@ -435,10 +497,126 @@
     pintarPalabra(a);
   }
 
-  function mostrarVista(deletreando) {
-    $("#vDeletreo").classList.toggle("oculta", !deletreando);
-    $("#vReposo").classList.toggle("oculta", deletreando);
+  function mostrarVista(vista) {            // "deletreo" (la mano) | "kinect" | "reposo"
+    $("#vDeletreo").classList.toggle("oculta", vista !== "deletreo");
+    $("#vKinect").classList.toggle("oculta", vista !== "kinect");
+    $("#vReposo").classList.toggle("oculta", vista !== "reposo");
   }
+
+  // ---------- Kinect: estado, texto deletreado y (solo en este PC) la cámara
+  function estadoKinect(k) {
+    if (!k.controles && k.estado !== "error") return ["pendiente", "Simulado"];
+    if (k.estado === "apagado" || k.estado === "cargando") return ["aviso", "Conectando…"];
+    if (!k.conectado || !k.camara || k.estado === "error") return ["error", "No conectado"];
+    if (k.activo) return ["ok", "Reconociendo"];
+    return ["ok", "Listo"];
+  }
+  let verCamara = false, urlCamara = null;
+  function pintarKinect(k, mano) {
+    const [clase, txt] = estadoKinect(k);
+    estadoFila("Kinect", clase, txt + (k.turno ? " · " + (k.turno.nombre || "un jurado") : ""));
+    $("#kinRotulo").textContent = k.turno && k.turno.nombre ? "Kinect · " + k.turno.nombre : "Kinect";
+    // Con la cámara a la vista, texto y estado los pone la imagen (son del mismo momento); si no, el WebSocket
+    if (!camaraAlDia()) {
+      $("#kinTexto").textContent = k.texto || "";
+      $("#kinDetalle").textContent = k.activo ? k.detalle : "Deletreo detenido";
+    }
+    $("#kinTexto").classList.toggle("vivo", !!k.activo);
+    const frase = (k.frases || []).slice(-1)[0];
+    $("#kinFrase").textContent = "";
+    if (frase) { const b = document.createElement("b"); b.textContent = frase; $("#kinFrase").append("Dijo: «", b, "»"); }
+    // Mientras la mano deletrea, lo del Kinect sigue visible en una línea
+    $("#kinTira").textContent = "";
+    if (mano && k.activo) { const b = document.createElement("b"); b.textContent = (k.texto || "…").toUpperCase(); $("#kinTira").append("Kinect: ", b); }
+    verCamara = !!(TOKEN && k.camara);
+    if (!verCamara) { $("#kinCamara").hidden = true; $("#vKinect").classList.remove("con-camara"); }
+    // Controles del presentador
+    $("#ctrlKinect").hidden = !TOKEN || !k.controles;
+    document.querySelectorAll("#ctrlKinect [data-kin]").forEach((b) => {
+      b.disabled = (b.dataset.kin === "iniciar" && k.activo) || (b.dataset.kin === "detener" && !k.activo);
+    });
+    $("#kinEco").textContent = "Eco: " + (k.eco ? "sí" : "no");
+    $("#kinEco").classList.toggle("encendido", !!k.eco);
+    $("#kinLiberar").disabled = !k.turno;
+    // Código del turno: lo pide solo este PC (con el token); el WebSocket solo dice si cambió
+    const conCodigo = !!(TOKEN && k.controles && k.codigo);
+    $("#kinCodigoCaja").hidden = !conCodigo;
+    document.querySelector(".izq").classList.toggle("con-codigo", conCodigo);
+    $("#kinNuevoCodigo").hidden = !conCodigo;
+    if (conCodigo && k.codigo_version !== versionCodigo) pedirCodigo(k.codigo_version);
+  }
+  let versionCodigo = null;
+  const ponerCodigo = (c) => { $("#kinCodigo").textContent = c ? c.slice(0, 3) + " " + c.slice(3) : "——————"; };
+  async function pedirCodigo(version) {
+    versionCodigo = version;
+    try {
+      const r = await fetch("/api/kinect/codigo", { headers: { "X-PGC-Admin": TOKEN }, cache: "no-store" });
+      if (r.ok) ponerCodigo((await r.json()).codigo);
+      else versionCodigo = null;
+    } catch (e) { versionCodigo = null; }
+  }
+  // La cámara solo se pide en el PC del proyector (el servidor la niega por el túnel o la red).
+  // Pide "la imagen siguiente a la última que mostré" (?despues=N): el servidor responde apenas existe,
+  // así cada cuadro llega una sola vez y sin esperas fijas. La decodifica antes de mostrarla (sin
+  // parpadeo) y pone el texto y el estado que el servidor leyó junto con ESA imagen.
+  let ultimoCuadro = null, tSincronia = 0;
+  const camaraAlDia = () => verCamara && performance.now() - tSincronia < 600;
+  async function bucleCamara() {
+    for (;;) {
+      let pausa = 300;                                  // sin cámara a la vista, o si algo falló
+      if (verCamara && !$("#vKinect").classList.contains("oculta")) {
+        try {
+          const despues = ultimoCuadro === null ? "" : "?despues=" + encodeURIComponent(ultimoCuadro);
+          const r = await fetch("/api/kinect/imagen" + despues, { headers: { "X-PGC-Admin": TOKEN }, cache: "no-store" });
+          if (r.ok) {
+            pausa = 0;
+            const cuadro = r.headers.get("X-Kinect-Cuadro");
+            if (cuadro === null) pausa = 200;               // sin número de cuadro no se puede esperar la siguiente
+            if (cuadro === null || cuadro !== ultimoCuadro) {
+              ultimoCuadro = cuadro;
+              const url = URL.createObjectURL(await r.blob());
+              const lista = new Image();
+              lista.src = url;
+              await lista.decode().catch(() => {});
+              const img = $("#kinCamara");
+              img.src = url;
+              img.hidden = false;
+              $("#vKinect").classList.add("con-camara");
+              if (urlCamara) URL.revokeObjectURL(urlCamara);
+              urlCamara = url;
+              if (r.headers.has("X-Kinect-Detalle")) {
+                $("#kinTexto").textContent = decodeURIComponent(r.headers.get("X-Kinect-Texto") || "").toLowerCase();
+                $("#kinDetalle").textContent = decodeURIComponent(r.headers.get("X-Kinect-Detalle"));
+                tSincronia = performance.now();
+              }
+            }
+          } else {
+            $("#kinCamara").hidden = true;
+            $("#vKinect").classList.remove("con-camara");
+          }
+        } catch (e) {}
+      }
+      await new Promise((listo) => setTimeout(listo, pausa));
+    }
+  }
+  if (TOKEN) bucleCamara();
+  const adminJSON = (ruta, cuerpo) => fetch(ruta, { method: "POST",
+    headers: { "X-PGC-Admin": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) });
+  async function ordenKinect(cuerpo, ruta = "/api/kinect/control") {
+    const r = await adminJSON(ruta, cuerpo).catch(() => null);
+    if (!r || !r.ok) avisoAdmin(r ? ((await r.json().catch(() => ({}))).detail || "No se pudo.") : "Sin conexión con el servidor.");
+  }
+  let ecoActivo = false;
+  document.querySelectorAll("#ctrlKinect [data-kin]").forEach((b) =>
+    b.addEventListener("click", () => ordenKinect({ accion: b.dataset.kin })));
+  $("#kinEco").addEventListener("click", () => ordenKinect({ activo: !ecoActivo }, "/api/kinect/eco"));
+  $("#kinLiberar").addEventListener("click", () => ordenKinect({}, "/api/kinect/liberar"));
+  $("#kinNuevoCodigo").addEventListener("click", async () => {
+    const r = await adminJSON("/api/kinect/codigo", {}).catch(() => null);
+    if (r && r.ok) { const d = await r.json(); versionCodigo = d.version; ponerCodigo(d.codigo); avisoAdmin("Código nuevo para el Kinect"); }
+    else avisoAdmin("No se pudo cambiar el código.");
+  });
+  $("#kinDiagnostico").addEventListener("click", () => window.open("/diagnostico", "_blank"));
 
   // ---------- derecha: cola y recientes
   function pintarCola(cola) {
@@ -514,7 +692,6 @@
     const t = d.tunel;
     estadoFila("Tunel", t.estado === "activo" ? "ok" : t.estado === "iniciando" ? "aviso" : "error",
       t.estado === "activo" ? "Activo" : t.estado === "iniciando" ? "Iniciando…" : t.estado === "apagado" ? "Solo red local" : mayus(t.estado));
-    estadoFila("Kinect", "pendiente", "Próxima fase");
 
     // Letras que sabe hacer la mano (reposo)
     if (m.letras) ponerAlfabeto(m.letras.toUpperCase());
@@ -528,7 +705,12 @@
     actualNombre = a ? a.nombre : null;
     $("#btnBloquear").disabled = !actualPid;
     $("#btnBloquear").textContent = actualPid && actualNombre ? "Bloquear a " + actualNombre : "Bloquear participante";
-    mostrarVista(!!a);
+    const k = d.kinect || {};
+    ecoActivo = !!k.eco;
+    pintarKinect(k, !!a);
+    // La mano tiene prioridad; si no deletrea, se ve el Kinect mientras se usa
+    const verKinect = k.controles && k.conectado && (k.activo || !!k.texto);
+    mostrarVista(a ? "deletreo" : verKinect ? "kinect" : "reposo");
     if (a) pintarDeletreo(a);
     else { claveGlifo = null; idPalabra = null; }
 
@@ -559,7 +741,7 @@
   }
   $("#btnCompleta").addEventListener("click", completa);
   document.addEventListener("keydown", (e) => { if (e.key === "f" || e.key === "F") completa(); });
-  if (!TOKEN) $(".controles").style.display = "none";   // abierta desde otro equipo: sin controles
+  if (!TOKEN) $("#grupos").style.display = "none";      // abierta desde otro equipo: sin controles
   let actualPid = null, actualNombre = null;
   $("#btnBloquear").addEventListener("click", () => {
     if (!actualPid) return;

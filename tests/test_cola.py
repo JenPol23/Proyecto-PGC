@@ -85,14 +85,17 @@ def test_instantanea_estructura(crear_sistema):
     s = crear_sistema()
     d = s.instantanea()
     assert set(d) == {"tipo", "sesion", "mano", "voz", "tunel", "url_local", "url_publica", "kinect",
-                      "max_caracteres", "actual", "cola", "historial", "bloqueados"}     # E8: bloqueados
+                      "max_caracteres", "actual", "cola", "historial", "bloqueados", "voz_salida"}     # E8, Kinect
     assert d["bloqueados"] == []
     assert d["tipo"] == "estado"
     assert d["mano"] == {"modo": "simulada", "medio": None, "puerto": None, "letras": None}   # E10: medio
     assert d["voz"] == {"estado": "listo", "dispositivo": "cuda float16"}
     assert d["tunel"] == {"estado": "apagado", "url": None}
     assert d["url_local"] == d["url_publica"] == "http://192.168.0.10:8000"
-    assert d["kinect"] == {"estado": "pendiente"}
+    assert set(d["kinect"]) == {"estado", "detalle", "texto", "conectado", "camara", "activo", "controles",
+                                "frases", "turno", "eco", "codigo", "codigo_version"}      # Kinect integrado
+    assert d["kinect"]["estado"] == "apagado" and d["kinect"]["turno"] is None and d["kinect"]["eco"] is False
+    assert d["voz_salida"] == {"estado": "desactivado"}
     assert d["max_caracteres"] == 60
     assert (d["actual"], d["cola"], d["historial"]) == (None, [], [])
 

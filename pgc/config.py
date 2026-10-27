@@ -13,6 +13,7 @@ from dotenv import dotenv_values
 
 RAIZ = Path(__file__).resolve().parent.parent
 MODOS_MANO = ("auto", "ble", "usb", "simulada")
+CAPTURADORES = ("auto", "kinect", "camara_pc", "no")
 
 
 class ErrorConfig(ValueError):
@@ -51,8 +52,23 @@ class Config:
     voz_max_en_espera: int = 3             # transcripciones esperando turno (además de la que corre)
     # --- túnel
     tunel: bool = True
-    # --- Kinect (fase 2+): "simulado" o "paquete.modulo:Clase" (ver docs/CONTRATO_KINECT.md)
-    reconocedor: str = "simulado"
+    # --- voz de salida (Coqui VITS): dice en los parlantes del PC las frases del Kinect
+    voz_salida: bool = True
+    voz_salida_modelo: str = "tts_models/es/css10/vits"
+    # --- Kinect: "kinect" (detector SVM de integracion_kinect/), "simulado" o "paquete.modulo:Clase"
+    reconocedor: str = "kinect"
+    kinect_url: str = "http://127.0.0.1:8765"   # detector (server_web_svm.py)
+    kinect_intervalo: float = 0.3          # s entre consultas a /spell/status
+    kinect_lanzar: bool = True             # arrancar el detector y el capturador junto con la plataforma
+    kinect_detector_paralelo: bool = True  # su server_web_svm.py envuelto con lecturas en paralelo (detector_paralelo.py)
+    kinect_python: str = ""                # Python del entorno del detector; vacío = buscarlo (ver procesos.py)
+    kinect_capturador: str = "auto"        # auto (app C# si está compilada) | kinect | camara_pc | no
+    kinect_exe: str = ""                   # LSCKinectFramework.exe; vacío = buscarlo en bin/Release o bin/Debug
+    kinect_camara: int = 0                 # cámara del PC para kinect_capturador=camara_pc
+    kinect_turno_segundos: float = 120.0   # el turno de un celular se libera tras este tiempo sin usarlo
+    kinect_codigo: bool = True             # para tomar el turno hay que escribir el código de 6 dígitos del proyector
+    kinect_eco: bool = False               # modo eco al arrancar: la mano repite lo que reconoce el Kinect
+    lim_kinect_cliente: int = 60           # controles del Kinect por minuto y celular
     # --- seguridad
     dev: bool = False                      # publica /docs y /openapi.json (opción --dev)
     texto_max_cuerpo: int = 200            # caracteres que acepta la API antes de recortar a max_caracteres
@@ -64,7 +80,7 @@ class Config:
     lim_previa_ip: int = 240
     lim_general_ip: int = 300
     ws_max_conexiones: int = 100
-    ws_max_por_ip: int = 8
+    ws_max_por_ip: int = 40                # por el túnel, los celulares del mismo WiFi comparten una IP
     log_textos: bool = False               # escribir los textos de los mensajes en el log (solo para depurar)
 
     @property
@@ -149,6 +165,11 @@ def _desde_opciones(args):
 def validar(cfg):
     if cfg.mano not in MODOS_MANO:
         raise ErrorConfig(f"PGC_MANO debe ser uno de {', '.join(MODOS_MANO)} (llegó {cfg.mano!r})")
+    if cfg.kinect_capturador not in CAPTURADORES:
+        raise ErrorConfig(f"PGC_KINECT_CAPTURADOR debe ser uno de {', '.join(CAPTURADORES)} "
+                          f"(llegó {cfg.kinect_capturador!r})")
+    if not cfg.kinect_url.startswith(("http://127.0.0.1:", "http://localhost:")):
+        raise ErrorConfig("PGC_KINECT_URL debe apuntar a este PC (http://127.0.0.1:<puerto>)")
     if not 1 <= cfg.puerto_web <= 65535:
         raise ErrorConfig(f"puerto web fuera de rango: {cfg.puerto_web}")
     if not cfg.mano_ble_nombre:
@@ -159,13 +180,15 @@ def validar(cfg):
         raise ErrorConfig("PGC_MANO=ble necesita PGC_MANO_BLE_TOKEN (el mismo TOKEN de config_ble.py)")
     for nombre in ("max_caracteres", "max_pendientes_cliente", "max_cola", "historial", "audio_max_mb",
                    "texto_max_cuerpo", "json_max_kb", "lim_mensaje_ip", "lim_mensaje_cliente", "lim_transcribir_ip",
-                   "lim_transcribir_cliente", "lim_previa_ip", "lim_general_ip", "ws_max_conexiones", "ws_max_por_ip"):
+                   "lim_transcribir_cliente", "lim_previa_ip", "lim_general_ip", "ws_max_conexiones", "ws_max_por_ip",
+                   "lim_kinect_cliente"):
         if getattr(cfg, nombre) < 1:
             raise ErrorConfig(f"PGC_{nombre.upper()} debe ser mayor que 0")
     if cfg.texto_max_cuerpo < cfg.max_caracteres:
         raise ErrorConfig("PGC_TEXTO_MAX_CUERPO no puede ser menor que PGC_MAX_CARACTERES")
     for nombre in ("pausa_letra", "pausa_no_disponible", "mano_timeout_letra", "mano_tiempo_simulado",
-                   "autodeteccion_cada", "ping_ws", "audio_max_segundos", "voz_max_en_espera", "mano_ble_reintento"):
+                   "autodeteccion_cada", "ping_ws", "audio_max_segundos", "voz_max_en_espera", "mano_ble_reintento",
+                   "kinect_intervalo", "kinect_turno_segundos", "kinect_camara"):
         if getattr(cfg, nombre) < 0:
             raise ErrorConfig(f"PGC_{nombre.upper()} no puede ser negativo")
     return cfg

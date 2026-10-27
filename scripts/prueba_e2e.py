@@ -27,7 +27,7 @@ from pathlib import Path
 import websockets
 
 RAIZ = Path(__file__).resolve().parent.parent
-PUERTO = 8765
+PUERTO = 8768                     # no el 8765: ese es el del detector del Kinect
 BASE = f"http://127.0.0.1:{PUERTO}"
 fallos = []
 
@@ -90,7 +90,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--entrada", choices=["servidor", "modulo"], default="servidor")
     args = ap.parse_args()
-    entorno = dict(os.environ)
+    # Plataforma simulada: sin el detector real del Kinect ni la voz de salida (los prueba prueba_servicios_reales.py)
+    entorno = {**os.environ, "PGC_RECONOCEDOR": "simulado", "PGC_VOZ_SALIDA": "false", "PGC_KINECT_LANZAR": "false"}
     opciones = ["--simular", "--sin-voz", "--sin-tunel", "--no-abrir", "--puerto-web", str(PUERTO)]
     comando = [sys.executable, "servidor.py", *opciones] if args.entrada == "servidor" else [sys.executable, "-m", "pgc", *opciones]
     print("Arrancando:", " ".join(comando[1:]))

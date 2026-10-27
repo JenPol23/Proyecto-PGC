@@ -76,7 +76,8 @@ ProyectoPGC/
 │  │  ├─ deletreo.py         # Deletreador: hilo que saca mensajes y habla con PuertoMano
 │  │  ├─ estado.py           # Instantánea del sistema + Publicador (avisa a los WebSocket)
 │  │  ├─ voz.py              # TranscribirAudio: validar, transcribir, recortar a 60
-│  │  └─ senas.py            # (fase 2+) Lectura Kinect → texto, TTS, modo eco, turno de un usuario
+│  │  ├─ senas.py            # Kinect → texto (eventos del contrato), controles y estado para las pantallas
+│  │  └─ turno.py            # Turno del Kinect: un jurado a la vez, liberación por inactividad
 │  ├─ puertos/               # Interfaces (typing.Protocol)
 │  │  ├─ mano.py             # PuertoMano
 │  │  ├─ transcriptor.py     # Transcriptor (voz → texto)
@@ -89,10 +90,13 @@ ProyectoPGC/
 │  │  ├─ mano_respaldo.py    # Cadena Bluetooth → USB → simulada, con autodetección
 │  │  ├─ mano_ble.py         # Bluetooth BLE (UART de Nordic, con token); reemplazó a mano_wifi.py (ADR-8)
 │  │  ├─ whisper.py          # faster-whisper (hoy voz_entrada.py)
-│  │  ├─ coqui_tts.py        # (fase 4) TTS
+│  │  ├─ voz_salida.py       # Coqui VITS en español (Sintetizador): dice las frases del Kinect
 │  │  ├─ cloudflared.py      # Túnel (hoy tunel.py)
 │  │  ├─ red.py              # ip_local()
-│  │  └─ kinect/             # ← carpeta de mis compañeros; implementan ReconocedorSenas
+│  │  └─ kinect/             # ReconocedorSenas real (ADR-9)
+│  │     ├─ reconocedor.py   # ReconocedorKinect: adaptador HTTP del detector de integracion_kinect/
+│  │     ├─ procesos.py      # LanzadorKinect: arranca el detector y el capturador, atados al proceso
+│  │     └─ camara_pc.py     # Cámara del PC → detector (para probar sin Kinect)
 │  └─ api/
 │     ├─ app.py              # crear_app(servicios): FastAPI, ciclo de vida, middlewares
 │     ├─ esquemas.py         # Modelos pydantic de entrada y salida
@@ -104,6 +108,8 @@ ProyectoPGC/
 │  └─ palabras_bloqueadas.txt
 ├─ web/                      # movil.html, pantalla.html, logo-udec.png (sin cambios de diseño)
 ├─ firmware/esp32/           # main.py, letras.json (posiciones), protocolo.md
+├─ integracion_kinect/       # Parte de Camila, se usa tal cual: detector/ (MediaPipe + SVM, server_web_svm.py)
+│                            #   y capturador/ (app C# del Kinect, SDK 1.8)
 ├─ tests/                    # unidad (dominio), aplicación, api, contratos de puertos
 ├─ scripts/                  # prueba_e2e.py, capturas.py, auditar_dependencias.bat
 ├─ docs/                     # ARQUITECTURA.md, ADR, diagramas
@@ -194,6 +200,23 @@ class ReconocedorSenas(Protocol):
 6. **Pruebas de contrato**: `tests/contratos/test_reconocedor.py` comprueba con cualquier implementación que inicia sin bloquear, que los eventos cumplen el formato y que `detener()` se puede llamar dos veces. Mis compañeros corren `py -3.11 -m pytest tests/contratos --reconocedor=<ruta>` antes de entregar.
 7. **Doble para mi lado**: `ReconocedorSimulado(texto="hola")` emite los eventos de ese texto con pausas. Me sirve para construir y probar el modo eco y la pantalla antes de que llegue su parte.
 
+#### A.4.1 Implementación real: `ReconocedorKinect` (26/10/2026, ADR-9)
+
+La parte de Camila llegó como **dos programas** en `integracion_kinect/`:
+- la app C# (`capturador/`), que envía cada imagen del Kinect en JPEG a `POST /detect`;
+- el detector (`detector/server_web_svm.py`, en `127.0.0.1:8765`), que con MediaPipe Hands + **un SVM (kernel RBF) sobre 89 características de los 21 puntos** confirma letras (misma predicción ≥ 0,7 s y ≥ 4 imágenes; retirar la mano 0,5 s entre letras) y las escribe en su propio texto.
+
+Se usan **tal cual**. `pgc/adaptadores/kinect/reconocedor.py` los conecta al contrato:
+- consulta `GET /spell/status` cada 0,3 s (`Texto: …\nEstado: …`) y convierte el cambio del texto en eventos: letra nueva → `letra` (minúscula), espacio → `espacio`, texto más corto → `borrar` (se borra hasta el prefijo común y se escribe el resto);
+- `fin` lo emite el adaptador cuando alguien toca **Terminar**: primero recoge las letras pendientes, luego emite `fin` y deja en blanco el texto del detector (`POST /spell/clear`);
+- `GET /preview.jpg`: sin nadie mirando, 1 vez/s (solo para saber si llegan imágenes); mientras el proyector muestra la cámara, cada 30 ms, y **con cada imagen nueva se lee su estado** y se guardan juntos (imagen + texto + estado del mismo momento). El proyector pide `GET /api/kinect/imagen?despues=N` y el servidor responde apenas hay un cuadro más nuevo que N (espera larga): cada cuadro llega una sola vez. Una imagen que no cambia en 1,5 s = no llegan cuadros = "Kinect no conectado" (27/10/2026; medido: el proyector muestra todas las imágenes de la app, 9,9 de 10/s, antes 3,1/s);
+- estado: sin detector o sin imágenes → `error` con detalle **"Kinect no conectado"**; reconociendo con la mano a la vista → `listo`; detenido o sin mano → `sin_persona`;
+- si el detector pasa a devolver JSON (`texto`, `estado`, `activo`, `confianza`, `latencia_ms`), se usa sin cambiar el adaptador.
+
+**Extensiones opcionales del contrato (§3.1 de CONTRATO_KINECT.md, versión 1.1):** `controlar(accion)` (`iniciar`, `detener`, `espacio`, `borrar`, `terminar`), `imagen()`, los atributos `conectado`, `camara` y `activo`, y `desde_config(cfg)` para recibir `PGC_KINECT_*`. Un reconocedor sin ellas sigue funcionando (sin botones).
+
+Es **el único** que habla con el detector: los celulares y el proyector reciben todo por el WebSocket (§B.4 M6).
+
 ### A.5 Diagramas
 
 **Componentes y dependencias** (las flechas apuntan a lo que se usa):
@@ -235,11 +258,13 @@ flowchart LR
       AS[mano_simulada]
       AX[mano_respaldo]
       AWH[whisper]
-      ATT[coqui_tts]
-      AK[kinect · compañeros]
+      ATT[voz_salida · Coqui]
+      AK[kinect/reconocedor<br/>adaptador HTTP]
       ACF[cloudflared]
     end
   end
+  DET[Detector SVM :8765<br/>integracion_kinect · Camila]
+  AK -- GET /spell/status · /preview.jpg<br/>POST /spell/* --> DET
   M -- HTTPS/WSS --> R & W
   P -- HTTP/WS local --> R & W
   R --> S
@@ -267,8 +292,9 @@ flowchart TB
       UV[Proceso pgc<br/>uvicorn :8000]
       CF[cloudflared]
       NAV[Navegador /pantalla<br/>pantalla completa]
-      BR[Puente Kinect C#<br/>SDK 1.8 · compañeros]
-      GPU[(GPU: Whisper · TTS · modelos LSC)]
+      BR[App C# del Kinect<br/>SDK 1.8 · Camila · minimizada]
+      DET[Detector :8765<br/>MediaPipe + SVM · .venv-detector]
+      GPU[(GPU: Whisper)]
     end
     PRO[Proyector] 
     ESP[ESP32-S3 + 6 servos<br/>fuente 12 V · Bluetooth Mano-LSC]
@@ -282,7 +308,9 @@ flowchart TB
   NAV -- http://127.0.0.1:8000 --> UV
   UV -- Bluetooth BLE con token · ~10 m --> ESP
   UV -. USB serial 115200 · solo sin 12 V .-> ESP
-  KIN -- USB --> BR -- socket local 127.0.0.1 --> UV
+  KIN -- USB --> BR -- JPEG POST /detect · 127.0.0.1 --> DET
+  UV -- GET /spell/status · 127.0.0.1 --> DET
+  UV -. arranca y cierra (Job Object) .-> DET & BR
   UV --- GPU
   PC -- WiFi --> HS
   CF -- salida HTTPS --> HS --> CFE
@@ -430,6 +458,43 @@ Una sola dataclass congelada (`Config`) con **todos** los valores que hoy están
   - El Bluetooth de Windows tiene que estar encendido; si está apagado, el log lo dice.
   - Las pruebas usan una radio BLE falsa que ejecuta el `main.py` real y un bleak falso que habla con ella.
 
+**ADR-11 · Diagnóstico del reconocimiento y protocolo de letras (27/10/2026)**
+- *Contexto:* algunas letras no se toman. Antes de tocar el modelo o los tiempos de Camila hace falta saber por qué, letra por letra, con datos.
+- *Decisión:*
+  - `detector_paralelo.py` agrega `GET /diagnostico` (solo lectura): después de que SU lógica procesa cada imagen, lee su deletreador (candidata, desde cuándo, confirmaciones, armado) y, con una copia propia de su modelo, la 2.ª letra y el margen de la función de decisión del SVM (su modelo no calcula probabilidades: `probability=False`). Deriva el motivo: mano no detectada, más de una mano, retirar la mano, «sin letra», letra cambiando, tiempo insuficiente (x de 0,7 s), pocas imágenes (x de 4), confirmada.
+  - Vista `/diagnostico` solo en el PC (token), como la cámara: `GET /api/kinect/diagnostico` y el protocolo exigen token y origen local.
+  - Protocolo (`pgc/aplicacion/protocolo.py`, máquina de estados pura + hilo a ~10 muestras/s): pide cada letra N veces; confirma cuando el texto del detector crece (acierto o confusión) o da «no detectada» tras `tiempo_max`; el tiempo cuenta desde la primera imagen con mano. Ignora las muestras de imágenes procesadas antes de limpiar.
+  - Análisis puro (`pgc/dominio/experimento.py`): tabla por letra, matriz de confusión y causa probable (mano, «sin letra», letra parecida, inestable, tiempo de confirmación, margen bajo). Guardado (`pgc/adaptadores/experimentos.py`): `experimentos/<fecha_hora>/` con CSV (`;` y coma decimal), PNG e `informe.md`.
+- *Consecuencias:* el diagnóstico no cambia nada de su lógica (las POST siguen de a una; solo se leen sus campos). Con su servidor original (`PGC_KINECT_DETECTOR_PARALELO=false`) no hay diagnóstico (la vista lo dice). Los ajustes que salgan de los datos y toquen su código (tiempo de confirmación, más ejemplos) se acuerdan con ella.
+
+**ADR-10 · Velocidad del Kinect: detector en paralelo y app a 50 ms (27/10/2026)**
+- *Contexto:* medido con el detector real, el proyector mostraba ~3 imágenes/s. Tras optimizar el adaptador (espera larga, estado con cada imagen) quedaba limitado por dos cosas de la parte de Camila: su app espera 100 ms entre imágenes (máx. 10/s) y su detector atiende de a una petición (la vista previa espera a que termine cada imagen).
+- *Decisión (autorizada por el autor; la sustentación es en su PC):*
+  - `pgc/adaptadores/kinect/detector_paralelo.py` sirve su `server_web_svm.py` **sin modificarlo** con `ThreadingHTTPServer`: GET en paralelo; POST de a uno y en orden con un candado (MediaPipe y el deletreo nunca corren en paralelo). `PGC_KINECT_DETECTOR_PARALELO=false` vuelve a su servidor.
+  - **Única línea modificada de su código:** `AddMilliseconds(100)` → `AddMilliseconds(50)` en `MainWindow.xaml.cs`; se compila en Release aquí (VS Build Tools 2022).
+  - El adaptador revisa la imagen cada 15 ms mientras el proyector la muestra (con el detector en paralelo eso no frena a /detect).
+- *Medido (fuente simulada como su app; detector real):* proyector 17,0–17,1 img/s con la fuente a ~17,5 (antes 9,9 de 10 con la app vieja, 3,1 esta mañana); antigüedad 15 ms; desfase estado/imagen ≤ 32 ms. Respaldo con su servidor original: 14,8 img/s, desfase ≤ 94 ms.
+- *Reconocimiento:* las mismas 26 imágenes de prueba dan la misma secuencia de letras con su servidor y con el envoltorio, a 10 y a 20 img/s (su lógica confirma por tiempo).
+
+**ADR-9 · El Kinect de Camila integrado como proceso aparte, con un adaptador (26/10/2026)**
+- *Contexto:* el PR #2 trajo el detector (MediaPipe + SVM) como servidor HTTP en `127.0.0.1:8765`, la app C# que le envía las imágenes, y un lanzador propio (`iniciar_pgc_integrado.py`) que reemplazaba la página del celular desde fuera, consultaba el detector desde **cada celular** (imagen cada 0,2–0,4 s, estado cada 0,7–1 s) y agregaba un segundo sistema de permisos (código de 8 dígitos).
+- *Decisión:*
+  1. **El detector y la app C# se usan tal cual, en procesos aparte.** Sus versiones (mediapipe 0.10.21, numpy 1.26.4, protobuf 4, scikit-learn 1.5.2 con la que se guardó el modelo) no caben en el Python de la plataforma (numpy 2.4, mediapipe 0.10.9, protobuf 3): van en `.venv-detector`. `LanzadorKinect` los arranca con la plataforma y un Job Object los cierra con ella (como cloudflared), aunque se cierre a la fuerza.
+  2. **Un adaptador del contrato** (`ReconocedorKinect`, §A.4.1) es el único que habla con el detector. La pestaña Kinect pasa a ser código normal de `movil.html`, y todo llega por el WebSocket: el número de celulares no cambia la carga del detector (probado con 30).
+  3. **Turno de un jurado a la vez en lugar del código de 8 dígitos.** El código daba control por 2 horas a hasta 32 celulares a la vez (no "uno a la vez"), era un segundo mecanismo de permisos junto al token del presentador, obligaba a dictar el código en voz alta y no se enteraba de los bloqueos. El turno usa la identidad que ya existe (participante con nombre y `pid`): se toma con un botón si está libre, se suelta, se libera solo tras 120 s sin usarlo (`PGC_KINECT_TURNO_SEGUNDOS`), el presentador lo libera y bloquear a alguien también le quita el turno. El presentador (PC con token) controla siempre.
+  4. **La imagen de la cámara solo en el PC del proyector** (`GET /api/kinect/imagen` exige token y origen local): por el túnel o la red local muestra la cara de quien está señando (Ley 1581, ADR-7).
+  5. **"Terminar"** emite `fin`: la frase se dice con Coqui VITS por los parlantes del PC (no con la voz del navegador de cada celular) y, si el **modo eco** está activo, va a la cola de la mano como un mensaje de "Kinect" (las letras que la mano no hace se muestran como no disponibles).
+- *Consecuencias:*
+  - `iniciar_pgc_integrado.py` y `acceso_kinect.py` quedan **obsoletos** pero no se borran ni se modifican. `movil.html` conserva las marcas que busca ese lanzador, así que sigue funcionando (una prueba lo comprueba).
+  - El estado de "Kinect no conectado" cubre tres casos: falta el entorno del detector, el detector no responde o no llegan imágenes (app C# cerrada o Kinect desconectado).
+  - El detector no expone confianza ni latencia; los eventos llevan `confianza=1.0` hasta que su `/spell/status` las incluya (pedido en CONTRATO_KINECT.md §8).
+
+**ADR-12 · Código del proyector para tomar el turno del Kinect (27/10/2026)**
+- *Contexto:* el autor pidió que la pestaña Kinect del celular se viera y funcionara como el diseño de Camila, incluido su campo «Código del PC», pero sin perder el turno de ADR-9 (punto 3).
+- *Decisión:* el turno sigue siendo de un solo celular, con liberación por inactividad, liberación por el presentador y pérdida al ser bloqueado. Para **tomarlo** hay que escribir un código de **6 dígitos** que muestra el proyector (`secrets`, nuevo en cada arranque). El presentador lo regenera con «Cambiar código» (`POST /api/kinect/codigo`, con token), y quien tenía el turno lo pierde. El código **no** va en el estado del WebSocket (solo `codigo: true|false` y `codigo_version`, para que el proyector sepa cuándo pedirlo con `GET /api/kinect/codigo`, con token). `PGC_KINECT_CODIGO=false` vuelve al botón sin código.
+- *Por qué:* prueba que quien controla está en la sala (el enlace del túnel puede circular fuera de ella), sin crear un segundo sistema de permisos: el código es solo la llave para tomar el mismo turno. Adivinarlo: 1 entre 10⁶, con un límite de 30 intentos por minuto e IP, además del límite por celular.
+- *Pruebas:* `tests/test_kinect_codigo.py`.
+
 ---
 
 ## B. Seguridad
@@ -487,6 +552,7 @@ Lo que ya está bien y se conserva (todo cubierto por pruebas):
   3. encabezado `X-PGC-Admin` igual al token, comparado con `secrets.compare_digest`.
 - Por qué basta el encabezado propio contra CSRF: un sitio ajeno no puede enviar `X-PGC-Admin` sin una verificación previa (*preflight*) de CORS, y CORS está cerrado. Tampoco puede leer el token, porque no puede leer la respuesta de `/pantalla` desde otro origen.
 - Respuesta: 403 con el mismo mensaje de hoy ("Solo desde el PC del proyector.").
+- Con el Kinect (ADR-9), las mismas condiciones protegen `GET /api/kinect/imagen` (la cámara), `POST /api/kinect/eco`, `POST /api/kinect/liberar` y `GET|POST /api/kinect/codigo` (ADR-12). `POST /api/kinect/control` acepta al presentador con token o al celular que tiene el turno.
 
 **M2 · Validación de entrada con pydantic**
 - `texto`: `str`, `max_length=200` en el cuerpo. Se rechazan los caracteres de control. El límite de 60 después de recortar los bordes se mantiene, con su mensaje actual.
@@ -514,13 +580,16 @@ Lo que ya está bien y se conserva (todo cubierto por pruebas):
   | `POST /api/mensaje` | 20/min | 6/min |
   | `POST /api/transcribir` | 10/min | 4/min |
   | `POST /api/previa` | 240/min | — |
+  | `POST /api/kinect/control` y `/turno` | 120/min (y `/turno` 30/min: código del proyector) | 60/min |
   | Resto | 300/min | — |
+
+- **Kinect con varios celulares (26/10/2026):** el lanzador de Camila hacía que cada celular consultara el detector (unas 66 peticiones/min en cualquier pestaña y unas 216/min con la pestaña Kinect abierta); con 2 celulares en la pestaña Kinect detrás de la misma IP (el WiFi de la universidad por el túnel) se pasaba de 300/min y llegaban 429 **incluso al enviar mensajes**. Ahora la pestaña Kinect no hace ninguna petición (0 en 10 s, medido en Edge) y el servidor consulta el detector a ritmo fijo.
 
 - **Ojo**: los celulares con datos móviles pueden compartir IP (CGNAT del operador), por eso los límites por IP son holgados y los más estrictos son por cliente. Respuesta: 429 con `Retry-After`.
 
 **M6 · WebSocket (corrige H6)**
 - Se verifica `Origin`: debe ser el mismo `Host` (el del túnel, la IP local o 127.0.0.1). Si no, se cierra con el código 1008.
-- Máximo de conexiones: 100 en total y 8 por IP.
+- Máximo de conexiones: 100 en total y **40 por IP** (antes 8: por el túnel, los celulares del mismo WiFi comparten la IP pública, y el 9.º quedaba sin estado en vivo). Probado con 30 conexiones desde una IP.
 - `ws_max_size` = 4 KB en uvicorn. El servidor no lee mensajes del cliente; si llega alguno, se ignora.
 - El *ping* de 20 s se mantiene.
 
@@ -618,7 +687,9 @@ E10 puede esperar a que la mano esté en la mesa.
 | E10 | Hecha | **Ampliada por pedido del autor con WiFi**: el firmware atiende USB y TCP a la vez, con token y vigilante; en el PC hay `mano_wifi` y modos `auto\|wifi\|usb\|simulada` (ADR-1 implementado). `firmware/esp32/` se dividió en módulos; `letras.json` se generó a partir de las funciones originales y una prueba comprueba pulsos idénticos. **Después, por decisión del autor**: `main.py` volvió a ser su código original idéntico, más solo el bucle nuevo; y el 22/10/2026 el WiFi se cambió por **Bluetooth BLE** (`mano_ble`, modos `auto\|ble\|usb\|simulada`, ADR-8) |
 | E11 | Hecha | Se quitaron los atajos `texto_util.py`, `mano_serial.py`, `voz_entrada.py` y `tunel.py`. **Se conserva `servidor.py`** como forma corta de arrancar; `iniciar.bat` usa `python -m pgc`. `pip-audit`: plataforma sin vulnerabilidades; el entorno completo tiene avisos en paquetes de las fases 2–5 (ver ESTADO_FASE1.md §2). El código completo se genera en `docs/CODIGO_COMPLETO.md` |
 
-Herramientas de verificación: `py -3.11 -m pytest` (432 pruebas), `scripts/prueba_e2e.py` (la mano por Bluetooth de punta a punta está en `tests/test_mano_ble.py`), `scripts/prueba_servicios_reales.py` (Whisper y túnel reales) y `scripts/prueba_navegador.py --tema dark|light` (Edge real, también por el túnel).
+| E12 Kinect integrado (26/10/2026) | Hecha | ADR-9. `ReconocedorKinect` + detector falso con el protocolo real; turno; pestaña Kinect en el celular y vista Kinect en el proyector; voz de salida con Coqui; eco; `LanzadorKinect` + `instalar_detector.bat`. Probado con el detector real de Camila (su modelo carga con scikit-learn 1.5.2) y en Edge con dos celulares y el proyector. **Falta**: la app C# compilada y el Kinect físico |
+
+Herramientas de verificación: `py -3.11 -m pytest` (476 pruebas), `scripts/prueba_e2e.py` (la mano por Bluetooth de punta a punta está en `tests/test_mano_ble.py`), `scripts/prueba_servicios_reales.py` (Whisper, Coqui, detector del Kinect y túnel reales) y `scripts/prueba_navegador.py --tema dark|light` (Edge real, también por el túnel).
 
 Nota sobre §A.2: la estructura final difiere en detalles. `cloudflared.py` y `red.py` son un solo `acceso.py`; los mensajes siguen siendo diccionarios (no hay `mensaje.py`); hay `participantes.py`, `participante.py` y `senas.py`; y el firmware es un solo `main.py` (el código original del autor más el bucle por Bluetooth).
 

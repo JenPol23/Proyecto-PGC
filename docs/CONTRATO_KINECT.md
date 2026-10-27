@@ -1,8 +1,14 @@
 # Contrato: cómo conectar el reconocimiento de señas al sistema
 
-Para: Lina, Paula y Jean Harry · De: Jean Paul · Versión 1 (20/10/2026)
+Para: Lina, Paula y Jean Harry · De: Jean Paul · Versión 1.1 (26/10/2026; la 1 es del 20/10/2026)
 
 Este documento explica qué clase deben entregar para que su parte (Kinect + modelos de IA) se conecte a la plataforma **sin tocar el resto del código**, y qué hace la plataforma con lo que ustedes reconozcan.
+
+> **Novedades de la versión 1.1 — para que Camila lo revise.** Su detector (`integracion_kinect/detector/server_web_svm.py`) ya está conectado con este contrato, **sin modificar nada de su carpeta**:
+> - `pgc/adaptadores/kinect/reconocedor.py` (`ReconocedorKinect`) es la clase del contrato. La escribió Jean Paul con el visto bueno del equipo; está explicada en el §9. **Por favor revísenla**: si algo no coincide con cómo funciona su detector, díganmelo.
+> - La plataforma arranca su detector (con el Python de `.venv-detector`) y su app C# compilada, y los cierra al salir. La pestaña Kinect del celular y la vista del proyector son ahora parte de la plataforma.
+> - El §3.1 agrega **controles opcionales** (iniciar, detener, espacio, borrar, terminar). Una clase sin ellos sigue siendo válida.
+> - `iniciar_pgc_integrado.py` y `acceso_kinect.py` quedan **obsoletos** (§10). No se borraron ni se modificaron.
 
 ---
 
@@ -74,6 +80,19 @@ class ReconocedorSenas(Protocol):
 
 Cada vez que cambien `estado` o `detalle`, llamen a `al_cambiar_estado()`.
 
+### 3.1 Extensiones opcionales (versión 1.1)
+
+Si la clase las tiene, la plataforma las usa; si no, todo sigue funcionando (sin botones en las pantallas).
+
+| Extensión | Para qué |
+|---|---|
+| `controlar(accion)` con `"iniciar"`, `"detener"`, `"espacio"`, `"borrar"`, `"terminar"` | Los botones del celular (quien tiene el turno) y del proyector (el presentador). `"terminar"` debe terminar emitiendo `EventoSena("fin")`. Si falla, lanza una excepción con un mensaje corto para el jurado |
+| `imagen()` → JPEG o `None` | La cámara con los puntos de la mano. **Solo** se muestra en el proyector del PC, nunca por el túnel |
+| `diagnostico()` → dict o `None` | Por qué una letra se confirma o no (mano, predicción, 2.ª opción, margen, tiempo estable, motivo). Solo para la vista de diagnóstico del PC |
+| `imagen_con_estado(despues=None, espera=0)` → `{jpeg, texto, detalle, cuadro, edad_ms, desfase_ms}` o `None` | La imagen con el texto y el estado leídos para ELLA (el proyector los muestra juntos); con `despues=N` espera hasta `espera` s un cuadro más nuevo que N |
+| atributos `conectado`, `camara`, `activo` | Si el detector responde, si llegan imágenes y si el deletreo está iniciado |
+| `desde_config(cfg)` (método de clase) | Recibir la configuración `PGC_KINECT_*` en lugar de leer el `.env` (regla 6) |
+
 ## 4. Reglas (las importantes)
 
 1. **Ustedes confirman las letras.** La estabilización (por ejemplo, la misma letra en N cuadros seguidos, con una confianza mínima) y el corrector por caracteres son parte de su trabajo y de su evaluación. A mí solo me llegan letras ya decididas, nunca predicciones cuadro a cuadro.
@@ -137,13 +156,13 @@ class ReconocedorKinect:
    ```
    PGC_RECONOCEDOR=pgc.adaptadores.kinect.reconocedor:ReconocedorKinect
    ```
-   Si la clase no se puede importar o falla al iniciar, la plataforma usa un reconocedor simulado y el proyector muestra "Kinect: no disponible". La demo no se cae.
+   (Desde la versión 1.1 es el valor por defecto, con el nombre corto `PGC_RECONOCEDOR=kinect`.) Si la clase no se puede importar o falla al iniciar, la plataforma usa un reconocedor simulado y el proyector muestra "Kinect: no disponible". La demo no se cae.
 2. Antes de entregarme su parte, corran las **pruebas de contrato**:
    ```
    py -3.11 -m pytest tests/contratos --reconocedor=pgc.adaptadores.kinect.reconocedor:ReconocedorKinect
    ```
    Comprueban que `iniciar()` no bloquea, que los eventos tienen el formato correcto y que `detener()` se puede llamar dos veces. No necesitan la mano ni el servidor.
-3. Para probar en vivo: `py -3.11 servidor.py --simular` y abran `http://127.0.0.1:8000/pantalla`. Lo que reconozcan debe aparecer en el proyector.
+3. Para probar en vivo: `iniciar.bat --simular` (o `py -3.11 -m pgc --simular`) y abran `http://127.0.0.1:8000/pantalla`. Lo que reconozcan debe aparecer en el proyector. Sin Kinect, con la cámara del PC: `PGC_KINECT_CAPTURADOR=camara_pc` en el `.env`.
 
 ## 7. Lo que yo les garantizo
 
@@ -153,8 +172,31 @@ class ReconocedorKinect:
 
 ## 8. Lo que necesito que me digan
 
-- Qué gesto usarán para `espacio` y para `fin`, para mostrarlo en la pantalla de ayuda.
+- Qué gesto usarán para `espacio` y para `fin`, para mostrarlo en la pantalla de ayuda. *(Por ahora son los botones Espacio y Terminar.)*
 - Cuánto tarda en promedio entre que la persona forma la letra y el evento (`latencia_ms`), para ajustar las animaciones.
-- Si su puente C# usa un puerto local, cuál, para no chocar con el 8000 del servidor.
+- ~~Si su puente C# usa un puerto local~~: el detector usa `127.0.0.1:8765` (respondido con el PR #2).
+- **Pedido de la versión 1.1:** que `/spell/status` devuelva también JSON con la confianza y la latencia de cada letra (§9). El adaptador ya lo entiende; mientras tanto, los eventos llevan `confianza=1.0`.
 
 Dudas: escríbanme antes de cambiar algo fuera de su carpeta.
+
+## 9. Cómo se conectó el detector de Camila (`ReconocedorKinect`)
+
+```
+Kinect ─► app C# (capturador) ─JPEG POST /detect─► detector :8765 (MediaPipe + SVM) ◄─GET /spell/status cada 0,3 s─ ReconocedorKinect ─► EventoSena ─► plataforma
+```
+
+- **Su código se usa tal cual.** La plataforma arranca `server_web_svm.py` con el Python de `.venv-detector` (sus versiones exactas, con `instalar_detector.bat`) y su app C# compilada, minimizada. Los cierra al salir, aunque se cierre a la fuerza. No escribe nada en `integracion_kinect/` (ni `__pycache__`).
+- **De su texto a eventos:** el adaptador compara el texto anterior con el nuevo: letra nueva → `letra` (en minúscula), espacio → `espacio`, texto más corto → `borrar`. Sus reglas de confirmación (0,7 s estable, 4 imágenes, retirar la mano 0,5 s) siguen siendo las que deciden las letras.
+- **Terminar:** el adaptador recoge las letras pendientes, emite `fin` y deja en blanco su texto (`POST /spell/clear`). La frase se dice con la voz de la plataforma (Coqui, por los parlantes del PC) y, con el modo eco, la mano la deletrea.
+- **Estados:** sin detector o sin imágenes → `"error"` con "Kinect no conectado"; reconociendo con la mano a la vista → `"listo"`; detenido o sin mano → `"sin_persona"`. El detalle es su propia línea de `Estado:` ("Posible letra: A | Estable: 0.4 s").
+- **JSON (pedido):** si `/spell/status` devuelve `{"texto": "HOLA", "estado": "…", "activo": true, "confianza": 0.93, "latencia_ms": 120}`, el adaptador lo usa sin cambios. El texto plano actual sigue funcionando.
+- **Control:** un jurado a la vez toma el turno desde su celular; el presentador controla siempre desde el proyector. Reemplaza al código de 8 dígitos (motivos en ARQUITECTURA.md, ADR-9); desde el 27/10/2026, para tomar el turno se escribe el código de 6 dígitos que muestra el proyector (ADR-12, `PGC_KINECT_CODIGO`).
+- **Pruebas:** `tests/detector_falso.py` habla igual que su detector; `tests/test_kinect_adaptador.py` y `tests/test_kinect_plataforma.py` lo usan. La prueba de contrato pasa: `py -3.11 -m pytest tests/contratos --reconocedor=pgc.adaptadores.kinect.reconocedor:ReconocedorKinect`.
+
+## 9.1 Cambio de velocidad (27/10/2026)
+
+Con autorización del autor (la sustentación es en su PC): tu app se compila aquí con la espera entre imágenes en **50 ms** (antes 100; es la única línea cambiada de tu código) y tu `server_web_svm.py` se sirve sin cambios con `pgc/adaptadores/kinect/detector_paralelo.py` (lecturas en paralelo). Detalle y mediciones: HANDOFF.md y ARQUITECTURA.md (ADR-10).
+
+## 10. Lo que queda obsoleto (sin borrar)
+
+`iniciar_pgc_integrado.py` y `acceso_kinect.py` (en la raíz) ya no hacen falta: `iniciar.bat` arranca todo y la pestaña Kinect es parte de la página. **No se borraron ni se modificaron**, y siguen funcionando si alguien los ejecuta (la página del celular conserva las marcas que buscan). Cuando el equipo lo decida, se pueden quitar.

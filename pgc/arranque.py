@@ -37,29 +37,61 @@ def ip_local():
     return acceso.ip_local()
 
 
+def puerto_en_uso(puerto):
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", puerto)) == 0
+
+
+RECONOCEDORES = {"kinect": "pgc.adaptadores.kinect.reconocedor:ReconocedorKinect"}
+
+
 def cargar_reconocedor(cfg, log):
-    """'simulado' o 'paquete.modulo:Clase'. Si falla, el simulado (la demo no se cae)."""
+    """'kinect', 'simulado' o 'paquete.modulo:Clase'. Si falla, el simulado (la demo no se cae).
+
+    Si la clase tiene desde_config(cfg), se arma con la configuración; si no, sin argumentos (contrato, regla 6).
+    """
     from pgc.adaptadores.reconocedor_simulado import ReconocedorSimulado
     if cfg.reconocedor == "simulado":
         return ReconocedorSimulado()
     try:
-        modulo, clase = cfg.reconocedor.split(":")
-        return getattr(importlib.import_module(modulo), clase)()
+        modulo, nombre = RECONOCEDORES.get(cfg.reconocedor, cfg.reconocedor).split(":")
+        clase = getattr(importlib.import_module(modulo), nombre)
+        return clase.desde_config(cfg) if hasattr(clase, "desde_config") else clase()
     except Exception as ex:
         log(f"[kinect] No se pudo cargar {cfg.reconocedor}: {type(ex).__name__}: {ex} -> simulado")
         return ReconocedorSimulado(detalle="Kinect: no disponible")
 
 
+def crear_sintetizador(cfg, log, al_cambiar):
+    from pgc.adaptadores.voz_salida import SintetizadorCoqui
+    return SintetizadorCoqui(cfg.voz_salida_modelo, log=log, al_cambiar=al_cambiar)
+
+
+def guardar_experimento(protocolo, info):
+    from pgc.adaptadores.experimentos import guardar        # importa matplotlib: solo si se usa
+    return guardar(protocolo, info)
+
+
+def crear_lanzador(cfg, log):
+    from pgc.adaptadores.kinect.procesos import LanzadorKinect
+    return LanzadorKinect(cfg, log)
+
+
 def construir_sistema(cfg, log=registro.log, *, crear_mano=crear_mano, crear_transcriptor=crear_transcriptor,
-                      crear_tunel=crear_tunel, ip_local=ip_local, crear_reconocedor=cargar_reconocedor):
+                      crear_tunel=crear_tunel, ip_local=ip_local, crear_reconocedor=cargar_reconocedor,
+                      crear_sintetizador=crear_sintetizador):
     """Arma el Sistema. Las pruebas pasan sus dobles en lugar de los adaptadores reales."""
     mano = crear_mano(cfg, log)
     publicador = Publicador()
     voz = crear_transcriptor(cfg, log, publicador.notificar)
     tunel = crear_tunel(cfg, log, publicador.notificar)
+    sintetizador = crear_sintetizador(cfg, log, publicador.notificar) if cfg.voz_salida else None
     url_local = f"http://{ip_local()}:{cfg.puerto_web}"
     return Sistema(cfg, mano, voz, tunel, url_local, publicador, log, moderador=cargar_moderador(),
-                   reconocedor=crear_reconocedor(cfg, log))
+                   reconocedor=crear_reconocedor(cfg, log), sintetizador=sintetizador,
+                   guardar_experimento=guardar_experimento)
 
 
 def main(argv=None):
@@ -78,9 +110,19 @@ def main(argv=None):
     import uvicorn
     from pgc.api.app import crear_app
 
+    if puerto_en_uso(cfg.puerto_web):
+        # Otra plataforma ya corre (otra ventana de iniciar.bat): sus detector y app no son restos
+        print(f"Ya hay una plataforma corriendo en el puerto {cfg.puerto_web} (¿otra ventana de iniciar.bat?). "
+              "Ciérrala antes de abrir otra.", file=sys.stderr)
+        return 3
     sistema = construir_sistema(cfg)
     app = crear_app(sistema)
-    uvicorn.run(app, host="0.0.0.0", port=cfg.puerto_web, log_level="warning",
-                ws_max_size=64 * 1024,             # el servidor no espera mensajes de los clientes
-                limit_concurrency=cfg.ws_max_conexiones + 200)
+    lanzador = crear_lanzador(cfg, registro.log)     # detector + app del Kinect (o cámara del PC)
+    lanzador.iniciar()
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=cfg.puerto_web, log_level="warning",
+                    ws_max_size=64 * 1024,             # el servidor no espera mensajes de los clientes
+                    limit_concurrency=cfg.ws_max_conexiones + 200)
+    finally:
+        lanzador.detener()                         # y si Python muere a la fuerza, el Job Object los cierra
     return 0

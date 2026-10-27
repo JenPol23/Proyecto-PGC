@@ -9,7 +9,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from pgc.api.rutas import admin, mensajes, paginas, participantes, voz, ws
+from pgc.api.rutas import admin, kinect, mensajes, paginas, participantes, voz, ws
 from pgc.api.seguridad import Limitador, MiddlewareSeguridad, es_admin, nuevo_token
 
 TRADUCCIONES = {
@@ -31,6 +31,8 @@ def mensaje_validacion(errores, cfg):
             return "Escribe tu mensaje de nuevo, por favor."
         if campo == "cliente":
             return "Recarga la página e intenta de nuevo."
+        if campo == "codigo":
+            return "Escribe el código de 6 dígitos que muestra el proyector."
         if campo == "nombre":
             return "Usa solo letras en tu nombre (máximo 20)."
         if campo == "audio":
@@ -52,6 +54,7 @@ def crear_app(sistema, abrir_navegador=webbrowser.open):
             sistema.voz.estado = "desactivado"
         if cfg.tunel:
             sistema.tunel.iniciar()
+        sistema.voz_salida.cargar_en_segundo_plano()     # Coqui VITS: dice las frases del Kinect
         sistema.senas.iniciar()
         log(f"[web] Pantalla del proyector: http://127.0.0.1:{cfg.puerto_web}/pantalla")
         log(f"[web] Celulares en la misma red: {sistema.url_local}")
@@ -101,6 +104,6 @@ def crear_app(sistema, abrir_navegador=webbrowser.open):
         respuesta.headers["Content-Security-Policy"] = CSP_DOCS
         return respuesta
 
-    for modulo in (paginas, mensajes, voz, participantes, admin, ws):
+    for modulo in (paginas, mensajes, voz, participantes, admin, kinect, ws):
         app.include_router(modulo.router)
     return app

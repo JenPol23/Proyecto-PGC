@@ -7,10 +7,17 @@ a una cola y un hilo propio los procesa, así el reconocedor nunca se bloquea
 """
 import queue
 import threading
+import time
 
+from pgc.aplicacion.turno import TurnoKinect
 from pgc.puertos.reconocedor import problemas_del_evento
 
 MAX_TEXTO = 60
+ACCIONES = ("iniciar", "detener", "espacio", "borrar", "limpiar", "terminar")
+
+
+class SinControles(RuntimeError):
+    """El reconocedor configurado no tiene controles (p. ej. el simulado)."""
 
 
 class ReconocedorNulo:
@@ -26,7 +33,8 @@ class ReconocedorNulo:
 
 
 class ServicioSenas:
-    def __init__(self, reconocedor, al_frase=None, al_cambiar=None, log=print, moderador=None):
+    def __init__(self, reconocedor, al_frase=None, al_cambiar=None, log=print, moderador=None,
+                 turno_segundos=120.0, reloj=time.monotonic, turno_codigo=False):
         self.reconocedor = reconocedor
         self.moderador = moderador      # la frase pasa por el mismo filtro que los mensajes
         self.al_frase = al_frase or (lambda texto: None)
@@ -34,6 +42,7 @@ class ServicioSenas:
         self.log = log
         self.texto = ""                 # frase en construcción
         self.frases = []                # frases terminadas en esta sesión (las últimas 10)
+        self.turno = TurnoKinect(turno_segundos, reloj, con_codigo=turno_codigo)
         self._eventos = queue.Queue(maxsize=500)
         self._iniciado = False
 
@@ -66,9 +75,16 @@ class ServicioSenas:
 
     def _procesar(self):
         while True:
-            evento = self._eventos.get()
             try:
-                self._aplicar(evento)
+                evento = self._eventos.get(timeout=1.0)
+            except queue.Empty:
+                evento = None
+            try:
+                if evento is not None:
+                    self._aplicar(evento)
+                if self.turno.revisar():     # un turno vencido se libera solo
+                    self.log("[kinect] Turno liberado por inactividad")
+                    self.al_cambiar()
             except Exception as ex:      # nunca dejar morir el hilo
                 self.log(f"[kinect] Error procesando un evento: {type(ex).__name__}")
 
@@ -92,5 +108,47 @@ class ServicioSenas:
                 self.al_frase(frase)
         self.al_cambiar()
 
+    # ---------------------------------------------------------------- controles
+    @property
+    def tiene_controles(self):
+        return callable(getattr(self.reconocedor, "controlar", None))
+
+    def controlar(self, accion):
+        """Pasa la orden al reconocedor (contrato §3.1). Sus errores llegan como RuntimeError con el motivo."""
+        if accion not in ACCIONES:
+            raise ValueError("Acción no válida.")
+        if not self.tiene_controles:
+            raise SinControles("Este Kinect no tiene controles.")
+        self.reconocedor.controlar(accion)
+        self.al_cambiar()
+
+    def diagnostico(self):
+        """Diagnóstico en vivo del detector (solo para el PC), o None si el reconocedor no lo tiene."""
+        obtener = getattr(self.reconocedor, "diagnostico", None)
+        return obtener() if callable(obtener) else None
+
+    def imagen(self):
+        """JPEG con los puntos de la mano (solo para el proyector del PC), o None."""
+        obtener = getattr(self.reconocedor, "imagen", None)
+        return obtener() if callable(obtener) else None
+
+    def imagen_con_estado(self, despues=None, espera=0.0):
+        """La imagen y el estado del mismo momento ({"jpeg", "texto", "detalle", "cuadro", "edad_ms",
+        "desfase_ms"}), o None. Si el reconocedor solo tiene imagen(), se arma con el estado actual."""
+        obtener = getattr(self.reconocedor, "imagen_con_estado", None)
+        if callable(obtener):
+            return obtener(despues, espera)
+        jpeg = self.imagen()
+        return jpeg and {"jpeg": jpeg, "texto": self.texto, "detalle": self.reconocedor.detalle}
+
     def instantanea(self):
-        return {"estado": self.reconocedor.estado, "detalle": self.reconocedor.detalle, "texto": self.texto}
+        r = self.reconocedor
+        return {"estado": r.estado, "detalle": r.detalle, "texto": self.texto,
+                "conectado": bool(getattr(r, "conectado", r.estado not in ("apagado", "error"))),
+                "camara": bool(getattr(r, "camara", False)),
+                "activo": bool(getattr(r, "activo", False)),
+                "controles": self.tiene_controles,
+                "frases": self.frases[-3:],
+                "turno": self.turno.instantanea(),
+                # Si hace falta el código del proyector y su versión, NUNCA el código (esto va a los celulares)
+                "codigo": self.turno.con_codigo, "codigo_version": self.turno.version_codigo}

@@ -105,5 +105,6 @@ def test_el_sistema_inicia_y_detiene_el_reconocedor(abrir_api):
         assert s.senas.reconocedor.estado == "sin_persona"
         s.senas.reconocedor.simular("ok", esperar=True)
         esperar(lambda: s.senas.frases == ["ok"])
-        assert c.get("/api/estado").json()["kinect"] == {"estado": "pendiente"}    # la pantalla aún no cambia
+        k = c.get("/api/estado").json()["kinect"]                                # ahora la pantalla lo ve
+        assert k["estado"] == "sin_persona" and k["frases"] == ["ok"] and k["controles"] is False
     assert s.senas.reconocedor.estado == "apagado"

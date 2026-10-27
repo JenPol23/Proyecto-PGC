@@ -89,7 +89,7 @@
   .panel.suave { background: var(--superficie); border-radius: 20px; padding: 18px; }
   h2 { margin: 0 0 12px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
   .panel.suave h2 { font-size: 16px; color: var(--texto-2); margin-bottom: 10px; }
-  .oculto { display: none !important; }
+  .oculto, [hidden] { display: none !important; }   /* [hidden] también: .btn { display: flex } no debe ganarle */
 
   /* escribir */
   textarea { display: block; width: 100%; min-height: 96px; resize: none; padding: 14px 16px; border: 0;
@@ -156,6 +156,32 @@
   @keyframes progreso { to { stroke-dashoffset: 0; } }
   @keyframes pulso { from { transform: scale(1); opacity: .5; } to { transform: scale(1.18); opacity: 0; } }
   input[type=file] { margin-top: 12px; max-width: 100%; font: inherit; font-size: 15px; }
+
+  /* kinect (diseño de Camila con la paleta de la plataforma) */
+  textarea.kin-texto { margin-top: 14px; min-height: 0; font-size: 26px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; cursor: default; }
+  textarea.kin-texto::placeholder { font-size: 19px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  textarea.kin-texto:focus { box-shadow: inset 0 0 0 1px var(--linea); }
+  textarea.kin-texto.vivo { box-shadow: inset 0 0 0 2px var(--acento); }
+  .kin-detalle { min-height: 1.45em; }
+  .kin-acceso { margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: var(--superficie); }
+  .kin-modo { margin-top: 0; font-weight: 600; color: var(--texto); }
+  .kin-acceso label { display: block; margin-top: 12px; font-size: 15px; font-weight: 600; color: var(--texto-2); }
+  .kin-acceso input { display: block; width: 100%; margin-top: 6px; padding: 12px 16px; border: 0; border-radius: 14px;
+    background: var(--fondo); color: var(--texto); font: inherit; font-size: 22px; letter-spacing: .3em;
+    font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--linea); }
+  .kin-acceso input::placeholder { font-size: 16px; letter-spacing: 0; color: var(--texto-3); }
+  .kin-acceso input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--acento); }
+  .kin-acceso .btn { margin-top: 12px; min-height: 52px; }
+  .kin-acceso .aviso.mostrar { margin-top: 12px; }
+  .kin-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .kin-botones .btn { margin-top: 0; min-height: 52px; font-size: 17px; }
+  .kin-botones .ancho { grid-column: 1 / -1; }
+  .kin-botones .destacado { min-height: 58px; font-size: 18px; }
+  .btn.sec2 { background: var(--superficie); color: var(--texto); box-shadow: inset 0 0 0 1px var(--linea); }
+  .btn.sec2:active:not(:disabled) { background: var(--linea); }
+  .btn.eco { background: var(--acento-suave); color: var(--acento); box-shadow: inset 0 0 0 1.5px var(--acento); }
+  .btn.eco.encendido { background: var(--acento-boton); color: var(--sobre-acento); box-shadow: none; }
 
   /* tus mensajes */
   .mensaje { display: grid; grid-template-columns: minmax(52px, auto) 1fr; gap: 14px; align-items: center;
@@ -272,10 +298,46 @@
 </section>
 
 <!-- ======================= KINECT ========================= -->
+<!-- Diseño de Camila (pestaña de iniciar_pgc_integrado.py): texto grande, estado, código del PC y botones en cuadrícula -->
 <section id="tab-kinect" class="panel oculto">
-  <h2>Señas frente al Kinect</h2>
-  <p class="nota">Párate frente al Kinect y haz el alfabeto manual de la LSC: el sistema lo reconocerá con modelos de IA entrenados para este proyecto y lo dirá en voz alta.</p>
-  <div class="aviso info mostrar">Este modo se habilitará en la siguiente fase del proyecto.</div>
+  <h2>De tus manos al texto</h2>
+  <div id="kinEstado" class="estado"><span class="punto"></span><span class="txt">Conectando con el Kinect…</span></div>
+  <p class="nota">Mantén la letra hasta verla escrita. Retira la mano entre letras.</p>
+
+  <textarea id="kinTexto" class="kin-texto" rows="3" readonly aria-label="Texto deletreado"
+            placeholder="Tus letras aparecerán aquí"></textarea>
+  <p id="kinDetalle" class="nota kin-detalle" role="status">Conectando...</p>
+  <p id="kinFrase" class="nota"></p>
+
+  <!-- Acceso: un jurado a la vez (turno), con el código que muestra el proyector -->
+  <div id="kinAcceso" class="kin-acceso">
+    <p id="kinModo" class="nota kin-modo" role="status">Modo espectador.</p>
+    <form id="kinLibre" class="oculto" novalidate>
+      <label id="kinCodigoEtq" for="kinCodigo">Código del PC</label>
+      <input id="kinCodigo" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+             autocomplete="off" enterkeyhint="go" placeholder="6 dígitos del proyector">
+      <button id="kinTomar" class="btn" type="submit">Activar control</button>
+      <div id="avisoAcceso" class="aviso"></div>
+    </form>
+    <div id="kinOcupado" class="aviso info"></div>
+    <button id="kinSoltar" class="btn sec2 oculto" type="button">Volver a espectador</button>
+  </div>
+
+  <!-- Botones en cuadrícula. Los del deletreo necesitan el turno; Guardar, Leer y Detener voz, no -->
+  <div id="kinMios" class="kin-botones">
+    <button class="btn" type="button" data-kin="iniciar">Iniciar</button>
+    <button class="btn sec2" type="button" data-kin="detener">Detener</button>
+    <button class="btn sec2" type="button" data-kin="espacio">Espacio</button>
+    <button class="btn sec2" type="button" data-kin="borrar">Borrar</button>
+    <button class="btn sec2" type="button" data-kin="limpiar">Limpiar</button>
+    <button id="kinGuardar" class="btn sec2" type="button">Guardar TXT</button>
+    <button id="kinLeer" class="btn sec2" type="button">Leer frase</button>
+    <button id="kinCallar" class="btn sec2" type="button">Detener voz</button>
+    <button class="btn ancho destacado" type="button" data-kin="terminar">Terminar y decirlo</button>
+    <button id="kinEco" class="btn ancho eco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
+  </div>
+  <p id="kinVoz" class="nota" role="status"></p>
+  <div id="avisoKinect" class="aviso"></div>
 </section>
 
 <!-- ===================== MIS MENSAJES ===================== -->
@@ -520,6 +582,158 @@
     else $("#vozEstado").textContent = "Habla claro, máximo " + SEGUNDOS + " segundos. Luego podrás revisar el texto.";
   }
 
+  // ---------- Kinect: todo llega por el WebSocket (sin consultas propias); los botones necesitan el turno
+  const hayKinect = !!$("#kinTexto");          // el lanzador antiguo (iniciar_pgc_integrado.py) reemplaza esta sección
+  let kinOcupado = false, ultimaFrase = null, tAvisoKinect = null;
+
+  function textoEstadoKinect(k) {
+    if (!k.controles && k.estado !== "error") return ["", "Kinect simulado"];
+    if (k.estado === "apagado" || k.estado === "cargando") return ["aviso", "Conectando con el Kinect…"];
+    if (!k.conectado || !k.camara || k.estado === "error") return ["error", "Kinect no conectado"];
+    if (k.activo) return ["ok", "Reconociendo señas"];
+    return ["", "Kinect listo · deletreo detenido"];
+  }
+
+  function pintarKinect() {
+    if (!hayKinect || !estado || !estado.kinect) return;
+    const k = estado.kinect;
+    const [clase, txt] = textoEstadoKinect(k);
+    const chipK = $("#kinEstado");
+    chipK.className = "estado " + clase;
+    chipK.querySelector(".txt").textContent = txt;
+    $("#kinTexto").value = (k.texto || "").toUpperCase();
+    $("#kinTexto").classList.toggle("vivo", !!k.activo);
+    // El estado del detector tal cual ("Deletreo detenido.", "Posible letra: A | Estable: 0.4 s"...)
+    $("#kinDetalle").textContent = txt === "Kinect no conectado"
+      ? "El presentador debe encender el Kinect y su detector."
+      : k.conectado ? (k.detalle || (k.activo ? "" : "Deletreo detenido.")) : "Conectando...";
+    const frase = (k.frases || []).slice(-1)[0];
+    $("#kinFrase").textContent = frase ? "Última frase: «" + frase + "»" : "";
+    if (frase && frase !== ultimaFrase && ultimaFrase !== null) {
+      const dicha = estado.voz_salida && estado.voz_salida.estado === "listo";
+      aviso($("#avisoKinect"), "ok", (dicha ? "Se dijo en voz alta: «" : "Frase terminada: «") + frase + "»");
+      clearTimeout(tAvisoKinect);
+      tAvisoKinect = setTimeout(() => aviso($("#avisoKinect"), "", ""), 6000);
+    }
+    ultimaFrase = frase || "";
+
+    // Sin Kinect conectado no hay nada que controlar: los botones del deletreo quedan apagados
+    const conControles = k.controles && !bloqueado && k.conectado && k.camara;
+    const mio = !!(k.turno && miPid && k.turno.pid === miPid);
+    const libre = conControles && !k.turno;
+    $("#kinLibre").classList.toggle("oculto", !libre);
+    $("#kinCodigoEtq").classList.toggle("oculto", !k.codigo);       // PGC_KINECT_CODIGO=false: basta el botón
+    $("#kinCodigo").classList.toggle("oculto", !k.codigo);
+    if (!libre) aviso($("#avisoAcceso"), "", "");
+    $("#kinSoltar").classList.toggle("oculto", !conControles || !mio);
+    const otro = conControles && k.turno && !mio;
+    $("#kinOcupado").className = "aviso info" + (otro ? " mostrar" : "");
+    $("#kinOcupado").textContent = otro ? "Lo está usando " + (k.turno.nombre || "otra persona") + ". Espera tu turno." : "";
+    $("#kinModo").textContent = mio && conControles
+      ? "Control del teléfono activo (se libera solo tras 2 minutos sin usarlo)."
+      : libre && k.codigo ? "Modo espectador. Introduce el código del PC para controlar."
+      : libre ? "Modo espectador. Toca «Activar control» para controlar." : "Modo espectador.";
+    actualizarPropios();
+    const puede = mio && conControles && !kinOcupado;
+    document.querySelectorAll("[data-kin]").forEach((b) => {
+      const accion = b.dataset.kin;
+      b.disabled = !puede || (accion === "iniciar" && k.activo) || (accion === "detener" && !k.activo);
+    });
+    $("#kinTomar").disabled = kinOcupado;
+    $("#kinEco").textContent = "Eco: " + (k.eco ? "sí" : "no");
+    $("#kinEco").classList.toggle("encendido", !!k.eco);
+    $("#kinEco").disabled = !puede;
+  }
+
+  async function pedirKinect(ruta, cuerpo, donde = $("#avisoKinect")) {
+    kinOcupado = true;
+    pintarKinect();
+    try {
+      const r = await fetch(ruta, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cliente, ...cuerpo }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || "No se pudo completar.");
+      aviso(donde, "", "");
+      return true;
+    } catch (e) {
+      aviso(donde, "error", e.message || "Sin conexión con el servidor.");
+      return false;
+    } finally {
+      kinOcupado = false;
+      pintarKinect();
+    }
+  }
+  // ---------- En tu celular (también los espectadores): guardar y leer el texto deletreado
+  // Es el texto en curso o, si ya se terminó, la última frase
+  const textoKinect = () => {
+    const k = (estado && estado.kinect) || {};
+    return (k.texto || (k.frases || []).slice(-1)[0] || "").trim();
+  };
+  const tieneVoz = "speechSynthesis" in window;
+  if (tieneVoz) speechSynthesis.getVoices();          // algunos navegadores cargan las voces tarde
+  function actualizarPropios() {
+    const t = textoKinect();
+    $("#kinGuardar").disabled = !t;
+    $("#kinLeer").disabled = !tieneVoz || !t;
+    $("#kinCallar").disabled = !tieneVoz;
+  }
+  function guardarTxt() {
+    const t = textoKinect();
+    if (!t) return;
+    const url = URL.createObjectURL(new Blob([t.toUpperCase() + "\r\n"], { type: "text/plain;charset=utf-8" }));
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = "texto_lsc.txt";
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function leerFrase() {
+    const t = textoKinect();
+    if (!tieneVoz || !t) return;
+    // Primero una voz de Colombia; si no hay, de Latinoamérica; si no, cualquiera en español
+    const espanolas = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("es"));
+    const preferida = (prefijos) => espanolas.find((v) => prefijos.some((p) => v.lang.toLowerCase().replace("_", "-") === p));
+    const voz = preferida(["es-co"]) || preferida(["es-419", "es-mx", "es-us", "es-pe", "es-ec", "es-ve", "es-cl", "es-ar"])
+      || espanolas[0];
+    if (!voz) {
+      $("#kinVoz").textContent = "No hay una voz en español disponible. Revisa las voces del celular o vuelve a intentarlo cuando carguen.";
+      return;
+    }
+    speechSynthesis.cancel();
+    const lectura = new SpeechSynthesisUtterance(t.toLowerCase());
+    lectura.voice = voz;
+    lectura.lang = voz.lang;
+    lectura.onstart = () => { $("#kinVoz").textContent = "Leyendo..."; };
+    lectura.onend = () => { $("#kinVoz").textContent = "Lectura terminada."; };
+    lectura.onerror = () => { $("#kinVoz").textContent = "Lectura detenida o audio no disponible."; };
+    speechSynthesis.speak(lectura);
+  }
+  function detenerVoz() {
+    if (tieneVoz) speechSynthesis.cancel();
+    $("#kinVoz").textContent = "Lectura detenida.";
+  }
+
+  if (hayKinect) {
+    $("#kinGuardar").addEventListener("click", guardarTxt);
+    $("#kinLeer").addEventListener("click", leerFrase);
+    $("#kinCallar").addEventListener("click", detenerVoz);
+    addEventListener("pagehide", () => { if (tieneVoz) speechSynthesis.cancel(); });
+    // Activar control: con el código que muestra el proyector (si PGC_KINECT_CODIGO=true)
+    $("#kinLibre").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const campo = $("#kinCodigo");
+      if (await pedirKinect("/api/kinect/turno", { codigo: campo.value.trim() }, $("#avisoAcceso"))) campo.value = "";
+    });
+    $("#kinSoltar").addEventListener("click", () => pedirKinect("/api/kinect/turno/soltar", {}));
+    // Modo eco: la mano repite lo que reconoce el Kinect (con el turno, igual que en el proyector)
+    $("#kinEco").addEventListener("click", () =>
+      pedirKinect("/api/kinect/eco", { activo: !(estado && estado.kinect && estado.kinect.eco) }));
+    document.querySelectorAll("[data-kin]").forEach((b) =>
+      b.addEventListener("click", () => pedirKinect("/api/kinect/control", { accion: b.dataset.kin })));
+  }
+
   // ---------- mis mensajes
   async function cancelar(id) {
     try {
@@ -604,6 +818,7 @@
     $("#enCola").textContent = n ? n + (n === 1 ? " mensaje en cola" : " mensajes en cola") : "";
     pintarMios();
     actualizarVoz();
+    pintarKinect();
   }
 
   // ---------- participante: nombre opcional y pausa del presentador

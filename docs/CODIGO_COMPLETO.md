@@ -1,6 +1,6 @@
 # Código completo del proyecto
 
-Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir de los archivos actuales (no se edita a mano). No incluye el firmware de Doby (otro proyecto) ni secretos (`.env`, `config_ble.py`).
+Generado el 27/10/2026 13:01 con `scripts/generar_codigo_completo.py`, a partir de los archivos actuales (no se edita a mano). No incluye el firmware de Doby (otro proyecto) ni secretos (`.env`, `config_ble.py`).
 
 ## Índice
 
@@ -19,13 +19,19 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `pgc/adaptadores/__init__.py`
 - `pgc/adaptadores/acceso.py`
 - `pgc/adaptadores/ble_puente.py`
+- `pgc/adaptadores/experimentos.py`
 - `pgc/adaptadores/kinect/__init__.py`
+- `pgc/adaptadores/kinect/camara_pc.py`
+- `pgc/adaptadores/kinect/detector_paralelo.py`
+- `pgc/adaptadores/kinect/procesos.py`
+- `pgc/adaptadores/kinect/reconocedor.py`
 - `pgc/adaptadores/mano_ble.py`
 - `pgc/adaptadores/mano_respaldo.py`
 - `pgc/adaptadores/mano_simulada.py`
 - `pgc/adaptadores/mano_usb.py`
 - `pgc/adaptadores/protocolo_mano.py`
 - `pgc/adaptadores/reconocedor_simulado.py`
+- `pgc/adaptadores/voz_salida.py`
 - `pgc/adaptadores/whisper.py`
 - `pgc/api/__init__.py`
 - `pgc/api/app.py`
@@ -33,6 +39,7 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `pgc/api/esquemas.py`
 - `pgc/api/rutas/__init__.py`
 - `pgc/api/rutas/admin.py`
+- `pgc/api/rutas/kinect.py`
 - `pgc/api/rutas/mensajes.py`
 - `pgc/api/rutas/paginas.py`
 - `pgc/api/rutas/participantes.py`
@@ -44,12 +51,15 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `pgc/aplicacion/deletreo.py`
 - `pgc/aplicacion/estado.py`
 - `pgc/aplicacion/participantes.py`
+- `pgc/aplicacion/protocolo.py`
 - `pgc/aplicacion/senas.py`
 - `pgc/aplicacion/sistema.py`
+- `pgc/aplicacion/turno.py`
 - `pgc/arranque.py`
 - `pgc/config.py`
 - `pgc/dominio/__init__.py`
 - `pgc/dominio/abecedario.py`
+- `pgc/dominio/experimento.py`
 - `pgc/dominio/moderacion.py`
 - `pgc/dominio/ordenes.py`
 - `pgc/dominio/participante.py`
@@ -61,6 +71,7 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `pgc/puertos/sintetizador.py`
 - `pgc/puertos/transcriptor.py`
 - `pgc/registro.py`
+- `web/diagnostico.html`
 - `web/movil.html`
 - `web/pantalla.html`
 - `firmware/esp32/config_ble.example.py`
@@ -76,6 +87,7 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `tests/ble_falso_hijo.py`
 - `tests/conftest.py`
 - `tests/contratos/test_reconocedor.py`
+- `tests/detector_falso.py`
 - `tests/esp32_falso.py`
 - `tests/test_acceso_huerfanos.py`
 - `tests/test_api.py`
@@ -86,16 +98,23 @@ Generado el 22/10/2026 09:45 con `scripts/generar_codigo_completo.py`, a partir 
 - `tests/test_config.py`
 - `tests/test_dominio.py`
 - `tests/test_firmware.py`
+- `tests/test_kinect_adaptador.py`
+- `tests/test_kinect_codigo.py`
+- `tests/test_kinect_lanzador.py`
+- `tests/test_kinect_paginas.py`
+- `tests/test_kinect_plataforma.py`
 - `tests/test_mano_ble.py`
 - `tests/test_mano_serial.py`
 - `tests/test_moderacion.py`
 - `tests/test_otros.py`
 - `tests/test_participantes.py`
+- `tests/test_protocolo.py`
 - `tests/test_puertos.py`
 - `tests/test_seguridad.py`
 - `tests/test_senas.py`
 - `tests/test_texto.py`
 - `scripts/armar_main_placa.py`
+- `scripts/diagnostico_kinect.py`
 - `scripts/generar_codigo_completo.py`
 - `scripts/prueba_e2e.py`
 - `scripts/prueba_navegador.py`
@@ -127,10 +146,15 @@ if __name__ == "__main__":
 
 ```bat
 @echo off
-rem Inicia el servidor de la mano LSC (abre la pantalla del proyector sola).
+rem Inicia TODO el sistema (abre la pantalla del proyector sola):
+rem   - la plataforma (pagina del celular, proyector, mano, voz, tunel HTTPS)
+rem   - el detector de senas de integracion_kinect (con el Python de .venv-detector)
+rem   - la app del Kinect ya compilada (LSCKinectFramework.exe), minimizada
+rem Al cerrar esta ventana (o con Ctrl+C) se cierran el detector y la app del Kinect.
+rem Si falta el detector o el Kinect, la plataforma arranca igual ("Kinect no conectado").
 rem Opciones: --simular  --puerto COM5  --sin-tunel  --sin-voz  --no-abrir  --dev
-rem Lo demas (mano por Bluetooth, token, limites...) se configura en el archivo .env
-rem (copia .env.example como .env la primera vez).
+rem Lo demas (mano por Bluetooth, token, Kinect, camara del PC...) se configura en el archivo .env
+rem (copia .env.example como .env la primera vez). Primera vez del detector: instalar_detector.bat
 cd /d "%~dp0"
 py -3.11 -m pgc %*
 pause
@@ -178,8 +202,24 @@ pause
 # ---------- túnel HTTPS (cloudflared)
 # PGC_TUNEL=true                    # false = solo red local (opción --sin-tunel)
 
-# ---------- Kinect (reconocimiento de señas de los compañeros, ver docs/CONTRATO_KINECT.md)
-# PGC_RECONOCEDOR=simulado          # o pgc.adaptadores.kinect.reconocedor:ReconocedorKinect
+# ---------- voz de salida (Coqui VITS): dice las frases del Kinect por los parlantes del PC
+# PGC_VOZ_SALIDA=true
+# PGC_VOZ_SALIDA_MODELO=tts_models/es/css10/vits
+
+# ---------- Kinect (detector SVM de integracion_kinect/, ver docs/CONTRATO_KINECT.md)
+# PGC_RECONOCEDOR=kinect            # kinect | simulado | paquete.modulo:Clase
+# PGC_KINECT_URL=http://127.0.0.1:8765   # el detector (server_web_svm.py); siempre en este PC
+# PGC_KINECT_INTERVALO=0.3          # segundos entre consultas al detector
+# PGC_KINECT_LANZAR=true            # arrancar el detector y el capturador junto con la plataforma
+# PGC_KINECT_DETECTOR_PARALELO=true # false = su server_web_svm.py original (atiende de a una petición; más lento)
+# PGC_KINECT_PYTHON=                # Python del entorno del detector; vacío = .venv del detector o .venv-detector
+# PGC_KINECT_CAPTURADOR=auto        # auto (app C# si está compilada) | kinect | camara_pc | no
+# PGC_KINECT_EXE=                   # ruta de LSCKinectFramework.exe; vacío = bin\Release o bin\Debug
+# PGC_KINECT_CAMARA=0               # cámara del PC (con PGC_KINECT_CAPTURADOR=camara_pc)
+# PGC_KINECT_TURNO_SEGUNDOS=120     # el turno de un celular se libera tras este tiempo sin usar los controles
+# PGC_KINECT_CODIGO=true            # para tomar el turno hay que escribir el código de 6 dígitos del proyector
+# PGC_KINECT_ECO=false              # modo eco al arrancar (el presentador lo cambia en el proyector)
+# PGC_LIM_KINECT_CLIENTE=60         # controles del Kinect por minuto y celular
 
 # ---------- seguridad
 # PGC_DEV=false                     # true = publica /docs y /openapi.json (opción --dev)
@@ -193,7 +233,7 @@ pause
 # PGC_LIM_PREVIA_IP=240
 # PGC_LIM_GENERAL_IP=300
 # PGC_WS_MAX_CONEXIONES=100         # pantallas y celulares conectados en vivo
-# PGC_WS_MAX_POR_IP=8
+# PGC_WS_MAX_POR_IP=40               # por el túnel, los celulares del mismo WiFi comparten una IP
 # PGC_LOG_TEXTOS=false              # true = escribir los textos de los mensajes en el log (solo para depurar)
 ```
 
@@ -264,14 +304,84 @@ filterwarnings =
 ```
 # Secretos: nunca al repositorio
 .env
+.env.*
+!.env.example
 config_ble.py
 config_wifi.py
 firmware/esp32/config_ble.py
+secrets.py
+secretos.py
+*.pem
+*.key
 
-# Generados
+# Python generado
 __pycache__/
+*.py[cod]
 .pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Editores y herramientas locales
+.vscode/
+.idea/
+.claude/
+
+# Pesados: instaladores, videos, datasets y modelos
+*.exe
+*.msi
+*.zip
+*.mp4
+*.avi
+*.mov
+*.mkv
+dataset/
+datasets/
+*.pt
+*.pth
+*.onnx
+*.npz
+
+# Copias locales y basura del sistema
 respaldos/
+capturas/
+Thumbs.db
+desktop.ini
+
+# Entornos y archivos temporales de Python
+.venv/
+__pycache__/
+*.pyc
+
+# Configuración privada
+.env
+
+# Archivos temporales de Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# Grabaciones de entrenamiento
+dataset/
+dataset_alfabeto/
+# Entorno del detector (sus versiones no caben en el Python de la plataforma) y registros de los procesos del Kinect
+.venv-detector/
+registros/
+
+# Binarios compilados (la app C# del Kinect se copia a bin\Debug; nunca al repositorio)
+*.exe
+*.dll
+*.pdb
+*.exe.config
+integracion_kinect/capturador/LSCKinectFramework/bin/
+integracion_kinect/capturador/LSCKinectFramework/obj/
 ```
 
 ## `datos/letras.json`
@@ -792,6 +902,156 @@ if __name__ == "__main__":
     main()
 ```
 
+## `pgc/adaptadores/experimentos.py`
+
+```python
+"""Guarda un protocolo de letras en experimentos/<fecha_hora>/: CSV, gráficas e informe (para el informe final).
+
+    intentos.csv            un renglón por intento (letra pedida, reconocida, tiempo, % con mano, ...)
+    muestras.csv            todas las muestras del diagnóstico (~10/s)
+    resumen_por_letra.csv   aciertos, confusiones, no detectadas y tiempo medio por letra
+    matriz_confusion.csv / .png
+    aciertos_por_letra.png  aciertos, confusiones y no detectadas por letra
+    tiempos_por_letra.png   tiempo hasta confirmar (solo aciertos)
+    informe.md              exactitud, letras que fallan y causa probable de cada una
+
+Los CSV usan ";" y coma decimal (Excel en español los abre bien) y UTF-8 con BOM.
+"""
+import csv
+import time
+from pathlib import Path
+
+from pgc.dominio import experimento as ex
+
+RAIZ = Path(__file__).resolve().parents[2]
+CARPETA = RAIZ / "experimentos"
+
+
+def _num(v):
+    return str(v).replace(".", ",") if isinstance(v, float) else ("" if v is None else v)
+
+
+def _csv(ruta, filas, columnas):
+    with open(ruta, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f, delimiter=";")
+        w.writerow(columnas)
+        for fila in filas:
+            w.writerow([_num(fila.get(c)) for c in columnas])
+
+
+def guardar(protocolo, info=None, carpeta_base=None):
+    """Devuelve (carpeta relativa al proyecto, informe)."""
+    carpeta = Path(carpeta_base or CARPETA) / time.strftime("%Y-%m-%d_%H%M%S")
+    carpeta.mkdir(parents=True, exist_ok=True)
+    intentos = protocolo.intentos
+    letras = list(dict.fromkeys(letra for letra, _ in protocolo.plan))
+    resumen = ex.informe(intentos, letras)
+
+    _csv(carpeta / "intentos.csv", [{**it, "resultado": ex.resultado_de(it)} for it in intentos],
+         ["letra", "intento", "resultado", "reconocida", "tiempo_s", "mano_pct", "prediccion_frecuente",
+          "margen_medio", "estable_max_s", "cambios", "sin_letra_pct", "motivo_frecuente"])
+    _csv(carpeta / "muestras.csv", protocolo.muestras,
+         ["t", "fase", "letra", "intento", "manos", "prediccion", "segunda", "margen", "estable_s",
+          "confirmaciones", "motivo", "texto"])
+    _csv(carpeta / "resumen_por_letra.csv",
+         [{**f, "confusiones": ", ".join(f"{k.upper()}×{v}" for k, v in f["confusiones"].items()),
+           "causa_probable": resumen["causas"].get(f["letra"], {}).get("texto", "")} for f in resumen["por_letra"]],
+         ["letra", "intentos", "aciertos", "exactitud_pct", "confusiones", "no_detectadas", "tiempo_medio_s",
+          "causa_probable"])
+    filas, columnas, matriz = ex.matriz_confusion(intentos, [l for l in letras if any(i["letra"] == l for i in intentos)])
+    with open(carpeta / "matriz_confusion.csv", "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f, delimiter=";")
+        w.writerow(["pedida \\ reconocida"] + [c.upper() for c in columnas])
+        for letra, fila in zip(filas, matriz):
+            w.writerow([letra.upper()] + fila)
+    _graficas(carpeta, resumen, filas, columnas, matriz, intentos)
+    _informe(carpeta, resumen, protocolo, info or {})
+    return str(carpeta.relative_to(RAIZ)) if RAIZ in carpeta.parents else str(carpeta), resumen
+
+
+def _graficas(carpeta, resumen, filas, columnas, matriz, intentos):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    # Matriz de confusión
+    fig, eje = plt.subplots(figsize=(max(6, len(columnas) * 0.45), max(5, len(filas) * 0.4)))
+    imagen = eje.imshow(matriz, cmap="Greens")
+    eje.set_xticks(range(len(columnas)), [c.upper() if c != ex.NINGUNA else "ninguna" for c in columnas], rotation=90)
+    eje.set_yticks(range(len(filas)), [f.upper() for f in filas])
+    eje.set_xlabel("Reconocida")
+    eje.set_ylabel("Pedida")
+    eje.set_title("Matriz de confusión del protocolo de letras")
+    for i, fila in enumerate(matriz):
+        for j, v in enumerate(fila):
+            if v:
+                eje.text(j, i, v, ha="center", va="center", fontsize=8,
+                         color="white" if v > max(map(max, matriz)) / 2 else "black")
+    fig.colorbar(imagen, ax=eje, fraction=0.03)
+    fig.tight_layout()
+    fig.savefig(carpeta / "matriz_confusion.png", dpi=150)
+    plt.close(fig)
+
+    # Aciertos, confusiones y no detectadas por letra
+    por = resumen["por_letra"]
+    nombres = [f["letra"].upper() for f in por]
+    aciertos = [f["aciertos"] for f in por]
+    confus = [sum(f["confusiones"].values()) for f in por]
+    nodet = [f["no_detectadas"] for f in por]
+    fig, eje = plt.subplots(figsize=(max(6, len(por) * 0.4), 4))
+    eje.bar(nombres, aciertos, color="#1A7A55", label="Acierto")
+    eje.bar(nombres, confus, bottom=aciertos, color="#A86A00", label="Confundida")
+    eje.bar(nombres, nodet, bottom=[a + c for a, c in zip(aciertos, confus)], color="#9AA3A0", label="No detectada")
+    eje.set_ylabel("Intentos")
+    eje.set_title(f"Resultado por letra (exactitud total {resumen['exactitud_pct']} %)")
+    eje.legend(loc="upper right", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(carpeta / "aciertos_por_letra.png", dpi=150)
+    plt.close(fig)
+
+    # Tiempo hasta confirmar (aciertos)
+    datos = {f["letra"]: [it["tiempo_s"] for it in intentos if it["letra"] == f["letra"]
+                          and ex.resultado_de(it) == "acierto" and it["tiempo_s"] is not None] for f in por}
+    con_datos = [(l.upper(), v) for l, v in datos.items() if v]
+    if con_datos:
+        fig, eje = plt.subplots(figsize=(max(6, len(con_datos) * 0.4), 4))
+        eje.boxplot([v for _, v in con_datos], tick_labels=[l for l, _ in con_datos])
+        eje.axhline(ex.TIEMPO_CONFIRMACION, color="#C2362B", linestyle="--", linewidth=1,
+                    label=f"Mínimo de su lógica ({ex.TIEMPO_CONFIRMACION} s)")
+        eje.set_ylabel("Segundos desde que aparece la mano")
+        eje.set_title("Tiempo hasta confirmar la letra")
+        eje.legend(fontsize=8)
+        fig.tight_layout()
+        fig.savefig(carpeta / "tiempos_por_letra.png", dpi=150)
+        plt.close(fig)
+
+
+def _informe(carpeta, resumen, protocolo, info):
+    lineas = [
+        "# Protocolo de letras: resultados",
+        "",
+        f"- Fecha: {time.strftime('%d/%m/%Y %H:%M')}",
+        f"- Letras: {len({l for l, _ in protocolo.plan})} · repeticiones: {protocolo.repeticiones} · "
+        f"tiempo máximo por intento: {protocolo.tiempo_max} s" + (" · **detenido antes de terminar**" if info.get("detenido") else ""),
+        f"- Intentos: {resumen['intentos']} · aciertos: {resumen['aciertos']} · **exactitud {resumen['exactitud_pct']} %**"
+        + (f" · tiempo medio hasta confirmar: {resumen['tiempo_medio_s']} s" if resumen["tiempo_medio_s"] else ""),
+        "",
+        "## Por letra",
+        "",
+        "| Letra | Aciertos | Confusiones | No detectadas | Tiempo medio (s) | Causa probable de los fallos |",
+        "|---|---|---|---|---|---|",
+    ]
+    for f in resumen["por_letra"]:
+        conf = ", ".join(f"{k.upper()}×{v}" for k, v in f["confusiones"].items()) or "—"
+        causa = resumen["causas"].get(f["letra"], {}).get("texto", "—")
+        tiempo = f["tiempo_medio_s"] if f["tiempo_medio_s"] is not None else "—"
+        lineas.append(f"| {f['letra'].upper()} | {f['aciertos']}/{f['intentos']} | {conf} | {f['no_detectadas']} | "
+                      f"{tiempo} | {causa} |")
+    lineas += ["", "Archivos: intentos.csv, muestras.csv, resumen_por_letra.csv, matriz_confusion.csv/.png, "
+               "aciertos_por_letra.png, tiempos_por_letra.png.", ""]
+    (carpeta / "informe.md").write_text("\n".join(lineas), encoding="utf-8")
+```
+
 ## `pgc/adaptadores/kinect/__init__.py`
 
 ```python
@@ -800,6 +1060,862 @@ if __name__ == "__main__":
 Aquí va la clase que cumple el puerto pgc.puertos.reconocedor.ReconocedorSenas.
 Contrato completo, con un esqueleto para empezar: docs/CONTRATO_KINECT.md
 """
+```
+
+## `pgc/adaptadores/kinect/camara_pc.py`
+
+```python
+"""Envía la cámara del PC al detector, igual que la app C# hace con el Kinect (para probar sin Kinect).
+
+Toma la cámara con OpenCV, la lleva a 640×480 (la resolución del Kinect v1) y
+envía unas 10 imágenes por segundo en JPEG a POST /detect del detector.
+Corre con el Python del entorno del detector (ya trae OpenCV); no importa nada de pgc.
+
+    .venv-detector\\Scripts\\python pgc\\adaptadores\\kinect\\camara_pc.py [--camara 0] [--probar]
+"""
+import argparse
+import sys
+import time
+import urllib.error
+import urllib.request
+
+import cv2
+
+
+def abrir(indice):
+    # En Windows, DirectShow abre más rápido y más cámaras que el backend por defecto
+    for backend in ((cv2.CAP_DSHOW,) if sys.platform == "win32" else ()) + (cv2.CAP_ANY,):
+        cam = cv2.VideoCapture(indice, backend)
+        if cam.isOpened():
+            cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            return cam
+        cam.release()
+    return None
+
+
+def main():
+    try:                                     # su salida va a registros\camara_pc.log (cp1252 en Windows)
+        sys.stdout.reconfigure(errors="replace")
+    except AttributeError:
+        pass
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--url", default="http://127.0.0.1:8765")
+    ap.add_argument("--camara", type=int, default=0)
+    ap.add_argument("--fps", type=float, default=10)
+    ap.add_argument("--probar", action="store_true", help="envía una sola imagen y termina")
+    args = ap.parse_args()
+
+    cam = abrir(args.camara)
+    if cam is None:
+        print(f"No se pudo abrir la cámara {args.camara}", flush=True)
+        return 1
+    print(f"Cámara {args.camara} abierta; enviando a {args.url}/detect", flush=True)
+    pausa = 1.0 / max(args.fps, 1)
+    try:
+        while True:
+            t0 = time.monotonic()
+            ok, cuadro = cam.read()
+            if not ok:
+                print("La cámara no entregó imagen; reintentando", flush=True)
+                time.sleep(1)
+                continue
+            cuadro = cv2.resize(cuadro, (640, 480))
+            ok, jpeg = cv2.imencode(".jpg", cuadro, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            req = urllib.request.Request(args.url + "/detect", data=jpeg.tobytes(), method="POST",
+                                         headers={"Content-Type": "image/jpeg"})
+            try:
+                with urllib.request.urlopen(req, timeout=3) as r:
+                    manos = r.headers.get("X-Hands-Count", "?")
+                if args.probar:
+                    print(f"Imagen enviada; manos detectadas: {manos}", flush=True)
+                    return 0
+            except (urllib.error.URLError, OSError):
+                time.sleep(1)                       # el detector aún no está listo
+                continue
+            time.sleep(max(0.0, pausa - (time.monotonic() - t0)))
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        cam.release()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+## `pgc/adaptadores/kinect/detector_paralelo.py`
+
+```python
+"""El detector de Camila (server_web_svm.py) TAL CUAL, atendiendo las lecturas en paralelo y con diagnóstico.
+
+Su servidor (HTTPServer) atiende de a una petición: mientras procesa una imagen de /detect
+(MediaPipe + SVM, ~25–45 ms), la vista previa y el estado esperan. Este envoltorio NO modifica
+sus archivos: importa su módulo y lo sirve con ThreadingHTTPServer, con una regla para no
+cambiar su lógica:
+
+  - POST (/detect, /spell/*, /record/*, /alphabet/*, /recognize/*): de a uno, en orden, con un
+    candado, igual que en su servidor (el deletreo y MediaPipe nunca corren en paralelo);
+  - GET (/preview.jpg, /spell/status, ...): en paralelo; solo leen.
+
+Además agrega GET /diagnostico (solo lectura): por qué una letra se confirma o no. Después de que
+SU lógica procesa cada imagen, se leen los campos de su deletreador (candidata, desde cuándo,
+confirmaciones, armado) y, con una copia propia de su modelo, la segunda letra más probable y el
+margen entre ambas (su SVM no da probabilidades: probability=False). Nada de esto cambia su estado.
+
+Lo lanza pgc/adaptadores/kinect/procesos.py con el Python de .venv-detector:
+    python detector_paralelo.py <carpeta del detector>
+"""
+import json
+import sys
+import threading
+import time
+from collections import deque
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+
+
+class Diagnostico:
+    """Último cuadro procesado: qué vio MediaPipe, qué dijo el SVM y por qué no (o sí) se confirma."""
+
+    def __init__(self, svm_mod, entrenar_mod, modelo):
+        self.svm = svm_mod                      # server_deletreo_svm (su módulo)
+        self.caracteristicas = entrenar_mod.caracteristicas
+        self.modelo = modelo                    # copia propia de su modelo_estaticas.joblib (o None)
+        clases = list(modelo.classes_) if modelo is not None else list(entrenar_mod.CATEGORIAS)
+        self.categorias = [str(c) for c in clases]
+        self._lock = threading.Lock()
+        self._ultimo = {"t": 0.0, "manos": None, "motivo": "Todavía no llegan imágenes"}
+        self._recientes = deque(maxlen=60)      # (t, predicción) para ver si la letra está cambiando
+        self._texto_antes = ""
+
+    def registrar(self, resultado):
+        ahora = time.monotonic()
+        d = self.svm.deletreador
+        manos = [[{"x": float(p.x), "y": float(p.y), "z": float(p.z)} for p in m.landmark]
+                 for m in (resultado.multi_hand_landmarks or [])]
+        pred = segunda = None
+        margen = None
+        if len(manos) == 1 and self.modelo is not None:
+            vector = self.caracteristicas(manos)
+            if vector is not None:
+                fila = vector.reshape(1, -1)
+                pred = str(self.modelo.predict(fila)[0])                  # la misma predicción que su lógica
+                puntajes = self.modelo.decision_function(fila)[0]
+                clases = [str(c) for c in self.modelo.classes_]
+                orden = sorted(range(len(clases)), key=lambda i: puntajes[i], reverse=True)
+                otras = [i for i in orden if clases[i] != pred]
+                if otras:
+                    segunda = clases[otras[0]]
+                    margen = round(float(puntajes[clases.index(pred)] - puntajes[otras[0]]), 3)
+        if pred is not None:
+            self._recientes.append((ahora, pred))
+        ventana = {p for t, p in self._recientes if ahora - t <= self.svm.TIEMPO_CONFIRMACION}
+        estable = (ahora - d.candidata_desde) if (d.candidata and d.candidata_desde) else 0.0
+        confirmada = d.texto[len(self._texto_antes):] if d.texto.startswith(self._texto_antes) else ""
+        self._texto_antes = d.texto
+        motivo = self._motivo(d, len(manos), pred, ventana, estable, confirmada)
+        with self._lock:
+            self._ultimo = {
+                "t": ahora, "activo": bool(d.activo), "manos": len(manos),
+                "prediccion": pred, "segunda": segunda, "margen": margen,
+                "candidata": d.candidata, "estable_s": round(estable, 2), "confirmaciones": d.confirmaciones,
+                "armado": bool(d.armado), "texto": d.texto, "estado": d.estado,
+                "confirmada": confirmada.strip().lower() or None,
+                "letras_recientes": sorted(ventana), "motivo": motivo,
+                "tiempo_confirmacion": self.svm.TIEMPO_CONFIRMACION, "tiempo_liberacion": self.svm.TIEMPO_LIBERACION,
+                "confirmaciones_necesarias": 4,
+            }
+
+    def _motivo(self, d, manos, pred, ventana, estable, confirmada):
+        if confirmada.strip():
+            return f"Letra confirmada: {confirmada.strip().upper()}"
+        if not d.activo:
+            return "Deletreo detenido"
+        if manos == 0:
+            return "Mano no detectada"
+        if manos > 1:
+            return "Más de una mano"
+        if not d.armado:
+            return f"Retira la mano {self.svm.TIEMPO_LIBERACION} s para la siguiente letra"
+        if pred is None:
+            return "Puntos de la mano no válidos"
+        if pred == "sin_letra":
+            return "El modelo dice «sin letra»"
+        if len(ventana) > 1:
+            return "Letra cambiando: " + " / ".join(sorted(x.upper() for x in ventana))
+        if estable < self.svm.TIEMPO_CONFIRMACION:
+            return f"Tiempo insuficiente: {estable:.1f} de {self.svm.TIEMPO_CONFIRMACION} s"
+        if d.confirmaciones < 4:
+            return f"Pocas imágenes: {d.confirmaciones} de 4"
+        return "Confirmando…"
+
+    def json(self):
+        with self._lock:
+            datos = dict(self._ultimo)
+        datos["edad_ms"] = round((time.monotonic() - datos["t"]) * 1000) if datos["t"] else None
+        datos["categorias"] = self.categorias
+        return json.dumps(datos, ensure_ascii=False).encode("utf-8")
+
+
+def main():
+    carpeta = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
+    sys.path.insert(0, str(carpeta))
+    import joblib
+    import mediapipe as mp
+    import entrenar_estaticas                           # sus módulos, sin cambios
+    import server_deletreo_svm
+    import server_web_svm
+
+    try:                                                 # copia propia: su deletreador carga la suya al iniciar
+        modelo = joblib.load(server_deletreo_svm.MODELO)["modelo"]
+    except Exception as ex:                              # sin modelo, el diagnóstico sigue (sin predicción)
+        print(f"Diagnóstico sin modelo: {ex}", flush=True)
+        modelo = None
+    diagnostico = Diagnostico(server_deletreo_svm, entrenar_estaticas, modelo)
+    una_a_la_vez = threading.Lock()
+
+    class DetectorConDiagnostico(server_web_svm.DetectorSVM):
+        def process(self, imagen_rgb):
+            resultado = super().process(imagen_rgb)      # SU procesamiento (MediaPipe + su deletreo)
+            try:
+                diagnostico.registrar(resultado)
+            except Exception as ex:                      # el diagnóstico nunca afecta a su detector
+                print(f"Diagnóstico: {type(ex).__name__}: {ex}", flush=True)
+            return resultado
+
+    class HandlerParalelo(server_web_svm.HandlerWeb):
+        def do_GET(self):
+            if self.path == "/diagnostico":
+                self.send_data(200, diagnostico.json(), "application/json; charset=utf-8",
+                               {"Cache-Control": "no-store"})
+                return
+            super().do_GET()
+
+        def do_POST(self):
+            with una_a_la_vez:
+                super().do_POST()
+
+    # Los mismos parámetros de MediaPipe que su main() en server_web_svm.py
+    with mp.solutions.hands.Hands(static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5) as manos:
+        HandlerParalelo.detector = DetectorConDiagnostico(manos)
+        servidor = ThreadingHTTPServer(("127.0.0.1", 8765), HandlerParalelo)
+        servidor.daemon_threads = True
+        print("Detector para la página listo en 127.0.0.1:8765 (lecturas en paralelo, con diagnóstico)", flush=True)
+        try:
+            servidor.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            servidor.server_close()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+## `pgc/adaptadores/kinect/procesos.py`
+
+```python
+"""Arranca la parte del Kinect junto con la plataforma y la cierra al salir.
+
+    detector    integracion_kinect/detector/server_web_svm.py, con el Python de SU entorno
+                (mediapipe 0.10.21, numpy 1.26, scikit-learn 1.5.2: no caben en el Python de la plataforma)
+    capturador  la app C# del Kinect ya compilada (LSCKinectFramework.exe), o
+                camara_pc.py, que manda la cámara del PC al detector (para probar sin Kinect)
+
+Los dos quedan atados a este proceso con un Job Object (como cloudflared): si la
+plataforma se cierra, incluso a la fuerza, Windows los cierra también.
+Si algo falta, se avisa en el registro y la plataforma sigue: el celular y el
+proyector dicen "Kinect no conectado".
+Los archivos de integracion_kinect/ se usan tal cual; nada aquí los modifica.
+"""
+import os
+import socket
+import subprocess
+import threading
+import time
+import urllib.request
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from pgc.adaptadores.acceso import atar_al_proceso_actual
+
+RAIZ = Path(__file__).resolve().parents[3]
+DETECTOR = RAIZ / "integracion_kinect" / "detector"
+CAPTURADOR = RAIZ / "integracion_kinect" / "capturador" / "LSCKinectFramework"
+CAMARA_PC = Path(__file__).resolve().parent / "camara_pc.py"
+DETECTOR_PARALELO = Path(__file__).resolve().parent / "detector_paralelo.py"
+REGISTROS = RAIZ / "registros"
+# Dónde puede estar el entorno del detector: el de su README y el de la raíz del repositorio
+PYTHONS = (DETECTOR / ".venv" / "Scripts" / "python.exe", RAIZ / ".venv-detector" / "Scripts" / "python.exe")
+EXES = tuple(CAPTURADOR / "bin" / v / "LSCKinectFramework.exe" for v in ("Release", "Debug"))
+MINIMIZADA = 7                    # SW_SHOWMINNOACTIVE: la ventana C# no tapa el proyector
+ESPERA_DETECTOR = 60.0            # s máximos esperando al detector antes de abrir la app del Kinect
+
+
+PATRONES_RESTOS = ("detector_paralelo.py", "server_web_svm.py", "camara_pc.py")
+
+
+def buscar_restos():
+    """Detectores, apps del Kinect y cámaras del PC que quedaron corriendo: [(pid, nombre, comando)].
+
+    Solo se llama cuando NO hay otra plataforma corriendo (si la hay, esos procesos son suyos).
+    """
+    if os.name != "nt":
+        return []
+    consulta = ("Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='LSCKinectFramework.exe'\" | "
+                "Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Json -Compress")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", consulta], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        import json
+        datos = json.loads(r.stdout) if r.stdout.strip() else []
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+    datos = [datos] if isinstance(datos, dict) else datos
+    restos = []
+    for d in datos:
+        comando = d.get("CommandLine") or ""
+        if d.get("ProcessId") == os.getpid():
+            continue
+        if d.get("Name") == "LSCKinectFramework.exe" or any(p in comando for p in PATRONES_RESTOS):
+            restos.append((d["ProcessId"], d["Name"], comando, d.get("ParentProcessId")))
+    # El python.exe de un entorno virtual lanza un hijo con el mismo comando: es UN detector, no dos.
+    # Se deja solo el de arriba (cerrarlo con /T cierra también al hijo).
+    pids = {r[0] for r in restos}
+    return [r[:3] for r in restos if r[3] not in pids]
+
+
+def cerrar_proceso(pid):
+    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def tipo_de_resto(nombre, comando):
+    if nombre == "LSCKinectFramework.exe":
+        return "app del Kinect"
+    return "cámara del PC" if "camara_pc.py" in comando else "detector"
+
+
+def detector_listo(url):
+    """El detector ya responde (/spell/status). Abrir la app antes es mandarle imágenes a nadie."""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/spell/status", timeout=0.5) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
+def minimizar_ventanas(pid):
+    """Minimiza (sin activarlas) las ventanas visibles del proceso. Devuelve [(título, ya_estaba_minimizada)].
+
+    La app se lanza ya minimizada (STARTUPINFO); esto lo confirma y lo corrige si WPF la abrió en grande.
+    """
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    encontradas = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def revisar(hwnd, _):
+        dueno = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(dueno))
+        if dueno.value == pid and u32.IsWindowVisible(hwnd) and u32.GetWindowTextLengthW(hwnd):
+            titulo = ctypes.create_unicode_buffer(256)
+            u32.GetWindowTextW(hwnd, titulo, 256)
+            minimizada = bool(u32.IsIconic(hwnd))
+            if not minimizada:
+                u32.ShowWindow(hwnd, MINIMIZADA)
+            encontradas.append((titulo.value, minimizada))
+        return True
+    u32.EnumWindows(revisar, 0)
+    return encontradas
+
+
+def puerto_ocupado(url):
+    partes = urlsplit(url)
+    with socket.socket() as s:
+        s.settimeout(0.3)
+        return s.connect_ex((partes.hostname, partes.port or 80)) == 0
+
+
+class LanzadorKinect:
+    def __init__(self, cfg, log=print, popen=subprocess.Popen, pythons=PYTHONS, exes=EXES,
+                 listo=detector_listo, minimizar=minimizar_ventanas, espera_detector=ESPERA_DETECTOR,
+                 buscar_restos=buscar_restos, cerrar=cerrar_proceso):
+        self.cfg = cfg
+        self.log = log
+        self._popen = popen
+        self._pythons = pythons
+        self._exes = exes
+        self._listo = listo
+        self._minimizar = minimizar
+        self._espera_detector = espera_detector
+        self._buscar_restos = buscar_restos
+        self._cerrar = cerrar
+        self._procesos = {}          # nombre → (Popen, job)
+        self._parar = threading.Event()
+        self._lock = threading.Lock()
+        self.python = self.exe = None
+
+    # ------------------------------------------------------------ búsqueda
+    def buscar_python(self):
+        if self.cfg.kinect_python:
+            ruta = Path(self.cfg.kinect_python)
+            return ruta if ruta.is_file() else None
+        return next((p for p in self._pythons if Path(p).is_file()), None)
+
+    def buscar_exe(self):
+        if self.cfg.kinect_exe:
+            ruta = Path(self.cfg.kinect_exe)
+            return ruta if ruta.is_file() else None
+        return next((e for e in self._exes if Path(e).is_file()), None)
+
+    # ------------------------------------------------------------ arranque
+    def iniciar(self):
+        if not self.cfg.kinect_lanzar or self.cfg.reconocedor != "kinect":
+            return
+        REGISTROS.mkdir(exist_ok=True)
+        self.cerrar_restos()
+        self.python = self.buscar_python()
+        if puerto_ocupado(self.cfg.kinect_url):
+            self.log(f"[kinect] Ya hay un detector en {self.cfg.kinect_url}: se usa ese")
+        elif self.python is None:
+            self.log("[kinect] Falta el entorno del detector: py -3.11 -m venv .venv-detector y luego "
+                     ".venv-detector\\Scripts\\python -m pip install -r "
+                     "integracion_kinect\\detector\\requirements-detector.txt")
+        else:
+            threading.Thread(target=self._vigilar_detector, daemon=True, name="detector").start()
+        # La app del Kinect se abre cuando el detector ya responde (en su propio hilo: el servidor no espera)
+        threading.Thread(target=self._capturador_cuando_este_el_detector, daemon=True, name="capturador").start()
+
+    def _capturador_cuando_este_el_detector(self):
+        if self.cfg.kinect_capturador == "no":
+            return
+        inicio = time.monotonic()
+        while not self._listo(self.cfg.kinect_url):
+            if self._parar.is_set():
+                return
+            if time.monotonic() - inicio > self._espera_detector:
+                self.log(f"[kinect] El detector no respondió en {self._espera_detector:.0f} s; "
+                         "se abre la app del Kinect de todas formas (revisa registros\\detector.log)")
+                break
+            self._parar.wait(0.25)
+        else:
+            self.log(f"[kinect] Detector listo en {time.monotonic() - inicio:.1f} s")
+        if not self._parar.is_set():
+            self._lanzar_capturador()
+
+    def cerrar_restos(self):
+        """Cierra detectores, apps del Kinect y cámaras que quedaron de una ejecución anterior."""
+        restos = self._buscar_restos()
+        if not restos:
+            return {}
+        cuenta = {}
+        for pid, nombre, comando in restos:
+            tipo = tipo_de_resto(nombre, comando)
+            cuenta[tipo] = cuenta.get(tipo, 0) + 1
+            self._cerrar(pid)
+        self.log("[kinect] Se cerraron restos de una ejecución anterior: "
+                 + ", ".join(f"{n} {t}" for t, n in sorted(cuenta.items())))
+        limite = time.monotonic() + 5                 # que el puerto del detector quede libre
+        while puerto_ocupado(self.cfg.kinect_url) and time.monotonic() < limite:
+            time.sleep(0.2)
+        return cuenta
+
+    def _lanzar(self, nombre, comando, cwd, ventana=None):
+        info = None
+        banderas = 0
+        if ventana is None:
+            banderas = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        elif hasattr(subprocess, "STARTUPINFO"):
+            info = subprocess.STARTUPINFO()
+            info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            info.wShowWindow = ventana
+        salida = open(REGISTROS / f"{nombre}.log", "ab")
+        # Sin __pycache__: nada se escribe dentro de integracion_kinect/ (sus archivos se usan tal cual)
+        entorno = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        with self._lock:                     # detener() no debe colarse entre crear y registrar el proceso
+            proc = self._popen([str(c) for c in comando], cwd=str(cwd), stdout=salida, stderr=subprocess.STDOUT,
+                               stdin=subprocess.DEVNULL, creationflags=banderas, startupinfo=info, env=entorno)
+            salida.close()                   # el hijo ya tiene su copia
+            self._procesos[nombre] = (proc, atar_al_proceso_actual(proc))
+            if self._parar.is_set():         # nació después de detener(): se cierra ya
+                proc.terminate()
+        return proc
+
+    def _vigilar_detector(self):
+        """Lanza el detector y lo vuelve a lanzar si se cae (máximo 5 veces seguidas)."""
+        fallos = 0
+        while not self._parar.is_set() and fallos < 5:
+            inicio = time.monotonic()
+            self.log(f"[kinect] Iniciando el detector (registro en registros\\detector.log)")
+            if self.cfg.kinect_detector_paralelo:     # su servidor, envuelto: lecturas en paralelo
+                comando = [self.python, "-u", DETECTOR_PARALELO, DETECTOR]
+            else:                                     # su servidor original, de a una petición
+                comando = [self.python, "-u", "server_web_svm.py"]
+            proc = self._lanzar("detector", comando, DETECTOR)
+            codigo = proc.wait()
+            if self._parar.is_set():
+                return
+            fallos = 0 if time.monotonic() - inicio > 60 else fallos + 1
+            self.log(f"[kinect] El detector terminó (código {codigo}); se reinicia en 3 s")
+            self._parar.wait(3)
+        if fallos >= 5:
+            self.log("[kinect] El detector falla al arrancar; revisa registros\\detector.log")
+
+    def _lanzar_capturador(self):
+        modo = self.cfg.kinect_capturador
+        if modo == "no":
+            return
+        if modo == "camara_pc":
+            if self.python is None:
+                self.log("[kinect] Sin el entorno del detector no se puede usar la cámara del PC")
+                return
+            self.log(f"[kinect] Usando la cámara {self.cfg.kinect_camara} del PC en lugar del Kinect")
+            self._lanzar("camara_pc", [self.python, "-u", CAMARA_PC, "--url", self.cfg.kinect_url,
+                                       "--camara", self.cfg.kinect_camara], RAIZ)
+            return
+        self.exe = self.buscar_exe()
+        if self.exe is None:
+            donde = f"en {self.cfg.kinect_exe}" if self.cfg.kinect_exe else "en bin\\Release ni bin\\Debug"
+            self.log(f"[kinect] No está la app del Kinect compilada ({donde}). Compílala en Visual Studio o "
+                     "pon su ruta en PGC_KINECT_EXE; para probar sin Kinect: PGC_KINECT_CAPTURADOR=camara_pc")
+            return
+        self.log(f"[kinect] Abriendo la app del Kinect ({self.exe.name}), minimizada")
+        proc = self._lanzar("capturador", [self.exe], self.exe.parent, ventana=MINIMIZADA)
+        self._confirmar_minimizada(proc)
+
+    def _confirmar_minimizada(self, proc, segundos=15.0):
+        """Espera a que aparezca la ventana de la app y se asegura de que quede minimizada."""
+        limite = time.monotonic() + segundos
+        while time.monotonic() < limite and not self._parar.is_set() and proc.poll() is None:
+            ventanas = self._minimizar(proc.pid)
+            if ventanas:
+                if not all(minimizada for _, minimizada in ventanas):
+                    self.log("[kinect] La app del Kinect se abrió en grande: se minimizó")
+                return
+            self._parar.wait(0.2)
+
+    # ------------------------------------------------------------ cierre
+    def detener(self):
+        with self._lock:
+            self._parar.set()
+            procesos = list(self._procesos.values())
+        for proc, _ in procesos:
+            if proc.poll() is None:
+                proc.terminate()
+        for proc, _ in procesos:
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        self._procesos.clear()
+```
+
+## `pgc/adaptadores/kinect/reconocedor.py`
+
+```python
+"""ReconocedorKinect: conecta el detector SVM del equipo con la plataforma.
+
+El detector (integracion_kinect/detector/server_web_svm.py, de Camila) se usa
+tal cual: MediaPipe Hands + el SVM entrenado por el equipo deciden las letras y
+las van escribiendo en su propio texto. Este adaptador solo lo consulta:
+
+    GET  /spell/status   "Texto: HOLA\\nEstado: Posible letra: A | Estable: 0.4 s"
+    POST /spell/start | stop | space | backspace | clear
+    GET  /preview.jpg    última imagen con los puntos de la mano (503 si no llegan)
+
+y convierte cada cambio del texto en los eventos del contrato
+(docs/CONTRATO_KINECT.md): letra nueva → "letra", espacio → "espacio",
+texto más corto → "borrar". "fin" lo emite este adaptador cuando alguien toca
+«Terminar»: primero recoge las letras pendientes, luego emite "fin" y deja en
+blanco el texto del detector.
+
+Si el detector cambia /spell/status a JSON ({"texto", "estado", "activo",
+"confianza", "latencia_ms"}), se usa sin cambiar nada aquí.
+
+Es el ÚNICO que habla con el detector: los celulares reciben todo por el
+WebSocket de la plataforma (nada de consultas repetidas desde cada celular).
+"""
+import json
+import os
+import threading
+import time
+import urllib.error
+import urllib.request
+
+from pgc.puertos.reconocedor import LETRAS_VALIDAS, EventoSena
+
+NO_CONECTADO = "Kinect no conectado"
+DETENIDO = "Deletreo detenido."
+ACCIONES = {"iniciar": "start", "detener": "stop", "espacio": "space", "borrar": "backspace", "limpiar": "clear"}
+SIN_MANO = ("No se detecta la mano.", "Lista para la siguiente letra.")
+MODELO = "SVM"                    # el modelo del detector (puntos de MediaPipe → letra)
+PERIODO_VISTA = 0.015             # mientras el proyector muestra la cámara: imagen cada 15 ms (no se pierden cuadros)
+ESTADO_MAX_S = 0.3                # el estado se lee con cada imagen nueva, y al menos cada 0,3 s
+VISTA_ACTIVA_S = 3.0              # el proyector "está mirando" si pidió la imagen en los últimos 3 s
+CONGELADA_S = 1.5                 # mirando: si la imagen no cambia en 1,5 s, ya no llegan cuadros
+SIN_CUADROS_S = 3.0               # sin mirar (se revisa 1 vez/s): el mismo margen que usa el detector
+
+
+class ErrorKinect(RuntimeError):
+    """Mensaje corto y amable para la pantalla (p. ej. "Kinect no conectado")."""
+
+
+def eventos_por_cambio(antes, despues):
+    """Eventos que llevan el texto `antes` a `despues` (los dos en el formato del detector).
+
+    Se borra hasta el prefijo común y se escribe el resto, como haría una persona.
+    """
+    comun = len(os.path.commonprefix([antes, despues]))
+    eventos = [EventoSena("borrar") for _ in antes[comun:]]
+    for c in despues[comun:]:
+        if c == " ":
+            eventos.append(EventoSena("espacio"))
+        elif c.lower() in LETRAS_VALIDAS:
+            eventos.append(EventoSena("letra", letra=c.lower(), modelo=MODELO, instante=time.monotonic()))
+    return eventos
+
+
+def leer_estado(cuerpo):
+    """(texto, detalle, activo|None, confianza|None, latencia|None) de /spell/status (texto o JSON)."""
+    cuerpo = cuerpo.strip()
+    if cuerpo.startswith("{"):
+        d = json.loads(cuerpo)
+        return (str(d.get("texto", "")), str(d.get("estado", "")), d.get("activo"),
+                d.get("confianza"), d.get("latencia_ms"))
+    texto, separador, detalle = cuerpo.replace("\r\n", "\n").partition("\nEstado:")
+    if not texto.startswith("Texto: ") or not separador:
+        raise ValueError("estado del detector no válido")
+    texto = texto[len("Texto: "):]
+    return ("" if texto == "—" else texto), detalle.strip(), None, None, None
+
+
+class ReconocedorKinect:
+    """Implementa pgc.puertos.reconocedor.ReconocedorSenas (+ los controles opcionales del contrato §3.1)."""
+
+    def __init__(self, url="http://127.0.0.1:8765", intervalo=0.3, timeout=1.5, reloj=time.monotonic):
+        self.url = url.rstrip("/")
+        self.intervalo = intervalo
+        self.timeout = timeout
+        self._reloj = reloj
+        self.estado = "apagado"
+        self.detalle = ""
+        self.conectado = False        # el detector responde
+        self.camara = False           # llegan imágenes del Kinect (o de la cámara del PC)
+        self.activo = False           # el deletreo está iniciado
+        self._texto = ""              # último texto visto en el detector
+        self._imagen = None
+        self._t_imagen = 0.0
+        self._t_cambio = -1e9         # última vez que llegó una imagen DISTINTA (la cámara sigue viva)
+        self._cuadro = 0              # número de imágenes distintas recibidas
+        self._foto = None             # {jpeg, t, texto, detalle, desfase_ms, cuadro}: imagen + estado del mismo momento
+        self._detalle_detector = ""   # la línea "Estado:" del detector, tal cual
+        self._t_estado = 0.0
+        self._t_pedida = -1e9         # alguien (el proyector) quiere ver la imagen
+        self._nueva = threading.Condition()   # avisa a quien espera la siguiente imagen (proyector)
+        self._al_evento = self._avisar = None
+        self._lock = threading.RLock()
+        self._parar = threading.Event()
+        self._hilo = None
+
+    @classmethod
+    def desde_config(cls, cfg):
+        """La plataforma lo arma con su configuración (PGC_KINECT_URL y PGC_KINECT_INTERVALO)."""
+        return cls(url=cfg.kinect_url, intervalo=cfg.kinect_intervalo)
+
+    # ------------------------------------------------------------ ciclo de vida
+    def iniciar(self, al_evento, al_cambiar_estado):
+        self._al_evento, self._avisar = al_evento, al_cambiar_estado
+        self._parar.clear()
+        self._cambiar("cargando", "Buscando el detector…")
+        self._hilo = threading.Thread(target=self._bucle, daemon=True, name="kinect")
+        self._hilo.start()
+
+    def detener(self):
+        self._parar.set()
+        if self._hilo and self._hilo is not threading.current_thread():
+            self._hilo.join(timeout=3)
+        self._hilo = None
+        self.conectado = self.camara = self.activo = False
+        if self.estado != "apagado":
+            self._cambiar("apagado", "")
+
+    def _mirando(self):
+        return self._reloj() - self._t_pedida < VISTA_ACTIVA_S
+
+    def _bucle(self):
+        """Sin nadie mirando: estado cada `intervalo` e imagen 1 vez/s (solo para saber si hay cámara).
+        Con el proyector mirando: imagen cada 30 ms y, apenas llega una NUEVA, su estado (así coinciden
+        y no se le piden al detector más estados de los necesarios: atiende de a una petición)."""
+        siguiente_imagen = siguiente_estado = 0.0
+        while not self._parar.is_set():
+            inicio = self._reloj()
+            mirando = self._mirando()
+            try:
+                with self._lock:
+                    if mirando:
+                        nueva = self._actualizar_imagen(emparejar=False)
+                        if nueva or inicio >= siguiente_estado:
+                            self._sincronizar()
+                            siguiente_estado = inicio + ESTADO_MAX_S
+                            if nueva:
+                                self._emparejar()
+                    else:
+                        self._sincronizar()
+                        if inicio >= siguiente_imagen:
+                            self._actualizar_imagen()
+                            siguiente_imagen = inicio + 1.0
+            except Exception as ex:                       # regla 4: nada se escapa del hilo
+                self._cambiar("error", f"Kinect: {type(ex).__name__}")
+            periodo = PERIODO_VISTA if mirando else self.intervalo
+            self._parar.wait(max(0.0, periodo - (self._reloj() - inicio)))   # descuenta lo que tardó la vuelta
+
+    # ------------------------------------------------------------ detector
+    def _pedir(self, ruta, metodo="GET"):
+        req = urllib.request.Request(self.url + ruta, method=metodo, data=b"" if metodo == "POST" else None)
+        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            return r.status, r.headers.get("Content-Type", ""), r.read()
+
+    def _sincronizar(self):
+        """Lee /spell/status, emite los eventos del cambio y actualiza estado y detalle."""
+        try:
+            _, _, cuerpo = self._pedir("/spell/status")
+            texto, detalle, activo, _, _ = leer_estado(cuerpo.decode("utf-8", "replace"))
+        except (urllib.error.URLError, OSError, ValueError):
+            self.conectado = self.camara = self.activo = False
+            self._cambiar("error", NO_CONECTADO)
+            return
+        self.conectado = True
+        self._detalle_detector, self._t_estado = detalle, self._reloj()
+        for evento in eventos_por_cambio(self._texto, texto):
+            self._emitir(evento)
+        self._texto = texto
+        if activo is not None:
+            self.activo = bool(activo)
+        elif detalle == DETENIDO:                     # el detector se reinició o alguien lo detuvo
+            self.activo = False
+        self._camara_al_dia()
+        if not self.camara:
+            self._cambiar("error", NO_CONECTADO)
+        elif self.activo and detalle not in SIN_MANO:
+            self._cambiar("listo", detalle)
+        else:
+            self._cambiar("sin_persona", detalle)
+
+    def _actualizar_imagen(self, emparejar=True):
+        """Trae /preview.jpg. Devuelve True si es una imagen NUEVA (el detector repite la última si no llegan)."""
+        nueva = False
+        try:
+            estado, tipo, cuerpo = self._pedir("/preview.jpg")
+            if estado == 200 and tipo.startswith("image/jpeg"):
+                ahora = self._reloj()
+                if cuerpo != self._imagen:
+                    nueva = True
+                    self._cuadro += 1
+                    self._t_cambio = ahora
+                self._imagen, self._t_imagen = cuerpo, ahora
+                if nueva and emparejar:
+                    self._emparejar()
+        except (urllib.error.URLError, OSError):
+            pass                                       # 503 = no llegan imágenes; el detector puede no estar
+        self._camara_al_dia()
+        return nueva
+
+    def _emparejar(self):
+        """Guarda la imagen nueva con el texto y el estado leídos para ella, y avisa a quien la espera."""
+        self._foto = {"jpeg": self._imagen, "t": self._t_imagen, "texto": self._texto,
+                      "detalle": self._detalle_detector, "cuadro": self._cuadro,
+                      "desfase_ms": round(abs(self._t_estado - self._t_imagen) * 1000, 1)}
+        with self._nueva:
+            self._nueva.notify_all()
+
+    def _camara_al_dia(self):
+        """Hay cámara si llegan imágenes NUEVAS (una imagen repetida = congelada = no llegan cuadros)."""
+        limite = CONGELADA_S if self._mirando() else SIN_CUADROS_S
+        self.camara = self.conectado and self._reloj() - self._t_cambio < limite
+
+    def _emitir(self, evento):
+        if self._al_evento:
+            self._al_evento(evento)
+
+    def _cambiar(self, estado, detalle):
+        if (estado, detalle) == (self.estado, self.detalle):
+            return
+        self.estado, self.detalle = estado, detalle
+        if self._avisar:
+            self._avisar()
+
+    # ------------------------------------------------------------ controles (contrato §3.1, opcionales)
+    def controlar(self, accion):
+        """iniciar | detener | espacio | borrar | limpiar | terminar. Lanza ErrorKinect si no se pudo."""
+        with self._lock:
+            if accion == "terminar":
+                self._sincronizar()                  # primero las letras que aún no se habían visto
+                self._emitir(EventoSena("fin"))
+                self._texto = ""                     # la frase ya salió: el detector empieza de cero
+                try:
+                    self._pedir("/spell/clear", "POST")
+                except (urllib.error.URLError, OSError):
+                    pass                             # la frase ya se entregó; no es un error para el jurado
+                return
+            if accion not in ACCIONES:
+                raise ErrorKinect("Acción no válida.")
+            try:
+                self._pedir("/spell/" + ACCIONES[accion], "POST")
+            except urllib.error.HTTPError as ex:      # p. ej. 400 "No existe modelo_estaticas.joblib."
+                mensaje = ex.read().decode("utf-8", "replace").strip()[:120] or "El detector rechazó la orden."
+                raise ErrorKinect(mensaje) from None
+            except (urllib.error.URLError, OSError):
+                raise ErrorKinect(NO_CONECTADO) from None
+            if accion == "iniciar":
+                self.activo = True
+            elif accion == "detener":
+                self.activo = False
+            self._sincronizar()
+
+    def diagnostico(self):
+        """Por qué una letra se confirma o no (GET /diagnostico de detector_paralelo.py), o None.
+
+        Su servidor original no lo tiene (404): entonces None y la vista de diagnóstico lo dice.
+        """
+        try:
+            estado, _, cuerpo = self._pedir("/diagnostico")
+            return json.loads(cuerpo.decode("utf-8")) if estado == 200 else None
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+
+    def imagen(self):
+        """Última imagen JPEG con los puntos de la mano, o None. Pedirla sube el ritmo de actualización."""
+        foto = self.imagen_con_estado()
+        return foto["jpeg"] if foto else None
+
+    def imagen_con_estado(self, despues=None, espera=0.0):
+        """La imagen con el texto y el estado del detector leídos para ELLA (contrato §3.1).
+
+        {"jpeg", "texto", "detalle", "cuadro", "edad_ms", "desfase_ms"}, o None si no llegan imágenes.
+        despues/espera: si ya se mostró el cuadro `despues`, espera hasta `espera` s a que llegue uno más
+        nuevo (así el proyector recibe cada imagen apenas existe, sin pedirla una y otra vez).
+        """
+        self._t_pedida = self._reloj()
+        if despues is not None and espera > 0:
+            limite = self._reloj() + espera
+            with self._nueva:
+                while (self._foto is None or self._foto["cuadro"] <= despues) and not self._parar.is_set():
+                    restante = limite - self._reloj()
+                    if restante <= 0:
+                        break
+                    self._t_pedida = self._reloj()
+                    self._nueva.wait(min(restante, 0.5))
+        foto = self._foto
+        if foto is None or self._reloj() - self._t_cambio > SIN_CUADROS_S:
+            return None
+        return {**foto, "edad_ms": round((self._reloj() - foto["t"]) * 1000, 1)}
 ```
 
 ## `pgc/adaptadores/mano_ble.py`
@@ -1436,6 +2552,68 @@ class ReconocedorSimulado:
         self._cambiar("sin_persona")
 ```
 
+## `pgc/adaptadores/voz_salida.py`
+
+```python
+"""Texto → voz con Coqui VITS en español (tts_models/es/css10/vits), por los parlantes del PC.
+
+El modelo ya está en la caché (%LOCALAPPDATA%\\tts) y se carga en segundo plano
+al arrancar, en CPU: una frase corta tarda menos de un segundo y así no compite
+con Whisper por la GPU. Implementa el puerto pgc.puertos.sintetizador.Sintetizador.
+"""
+import threading
+import time
+
+
+class SintetizadorCoqui:
+    def __init__(self, modelo="tts_models/es/css10/vits", log=print, al_cambiar=None):
+        self.modelo = modelo
+        self.log = log
+        self.al_cambiar = al_cambiar or (lambda: None)
+        self.estado = "sin cargar"     # sin cargar | cargando | listo | error | desactivado
+        self._tts = None
+        self._lock = threading.Lock()  # una frase a la vez
+
+    def _cambiar(self, estado):
+        self.estado = estado
+        self.al_cambiar()
+
+    def cargar_en_segundo_plano(self):
+        threading.Thread(target=self.cargar, daemon=True, name="voz-salida-carga").start()
+
+    def cargar(self):
+        self._cambiar("cargando")
+        t0 = time.time()
+        try:
+            from TTS.api import TTS
+            tts = TTS(model_name=self.modelo, progress_bar=False).to("cpu")
+            tts.tts(text="hola")                       # calentamiento
+            self._tts = tts
+            self.log(f"[voz] Voz de salida lista ({time.time() - t0:.1f} s)")
+            self._cambiar("listo")
+        except Exception as ex:
+            self.log(f"[voz] No se pudo cargar la voz de salida: {type(ex).__name__}: {ex}")
+            self._cambiar("error")
+
+    def sintetizar(self, texto):
+        """(muestras float32, frecuencia). Separado de decir() para probarlo sin parlantes."""
+        import numpy as np
+        if self._tts is None:
+            raise RuntimeError("la voz de salida no está lista")
+        with self._lock:
+            muestras = np.asarray(self._tts.tts(text=texto), dtype=np.float32)
+        return muestras, self._tts.synthesizer.output_sample_rate
+
+    def decir(self, texto):
+        if self._tts is None:
+            self.log("[voz] La voz de salida no está lista; no se dice la frase")
+            return
+        import sounddevice as sd
+        muestras, frecuencia = self.sintetizar(texto)
+        sd.play(muestras, frecuencia)
+        sd.wait()
+```
+
 ## `pgc/adaptadores/whisper.py`
 
 ```python
@@ -1572,7 +2750,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from pgc.api.rutas import admin, mensajes, paginas, participantes, voz, ws
+from pgc.api.rutas import admin, kinect, mensajes, paginas, participantes, voz, ws
 from pgc.api.seguridad import Limitador, MiddlewareSeguridad, es_admin, nuevo_token
 
 TRADUCCIONES = {
@@ -1594,6 +2772,8 @@ def mensaje_validacion(errores, cfg):
             return "Escribe tu mensaje de nuevo, por favor."
         if campo == "cliente":
             return "Recarga la página e intenta de nuevo."
+        if campo == "codigo":
+            return "Escribe el código de 6 dígitos que muestra el proyector."
         if campo == "nombre":
             return "Usa solo letras en tu nombre (máximo 20)."
         if campo == "audio":
@@ -1615,6 +2795,7 @@ def crear_app(sistema, abrir_navegador=webbrowser.open):
             sistema.voz.estado = "desactivado"
         if cfg.tunel:
             sistema.tunel.iniciar()
+        sistema.voz_salida.cargar_en_segundo_plano()     # Coqui VITS: dice las frases del Kinect
         sistema.senas.iniciar()
         log(f"[web] Pantalla del proyector: http://127.0.0.1:{cfg.puerto_web}/pantalla")
         log(f"[web] Celulares en la misma red: {sistema.url_local}")
@@ -1664,7 +2845,7 @@ def crear_app(sistema, abrir_navegador=webbrowser.open):
         respuesta.headers["Content-Security-Policy"] = CSP_DOCS
         return respuesta
 
-    for modulo in (paginas, mensajes, voz, participantes, admin, ws):
+    for modulo in (paginas, mensajes, voz, participantes, admin, kinect, ws):
         app.include_router(modulo.router)
     return app
 ```
@@ -1687,6 +2868,7 @@ def obtener_sistema(request: Request):
 ```python
 """Modelos de entrada de la API (pydantic)."""
 import unicodedata
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -1705,6 +2887,31 @@ class Texto(BaseModel):
     cliente: str = Field(default="anonimo", pattern=PATRON_CLIENTE)
 
     _validar_texto = field_validator("texto")(sin_caracteres_de_control)
+
+
+class Cliente(BaseModel):
+    cliente: str = Field(pattern=PATRON_CLIENTE)
+
+
+class TomarTurno(BaseModel):
+    cliente: str = Field(pattern=PATRON_CLIENTE)
+    codigo: str | None = Field(default=None, max_length=12)    # el del proyector (con PGC_KINECT_CODIGO=true)
+
+
+class ControlKinect(BaseModel):
+    accion: Literal["iniciar", "detener", "espacio", "borrar", "limpiar", "terminar"]
+    cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)
+
+
+class Eco(BaseModel):
+    activo: bool
+    cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)
+
+
+class Protocolo(BaseModel):
+    letras: str | None = Field(default=None, pattern=r"^[a-zñ ,]{1,120}$")   # None = todas las del modelo
+    repeticiones: int = Field(default=5, ge=1, le=20)
+    tiempo_max: float = Field(default=8.0, ge=2.0, le=30.0)
 
 
 class Participante(BaseModel):
@@ -1746,6 +2953,162 @@ def saltar(sistema=Depends(obtener_sistema)):
     if not sistema.saltar_actual():
         raise HTTPException(404, "No hay ningún mensaje en curso.")
     return {"ok": True}
+```
+
+## `pgc/api/rutas/kinect.py`
+
+```python
+"""Kinect: turno (un jurado a la vez), controles del deletreo, modo eco e imagen de la cámara.
+
+El estado del Kinect (texto en vivo, detector, turno) NO tiene rutas para
+consultar: llega a todos por el WebSocket. Aquí solo hay órdenes.
+"""
+import json
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
+
+from pgc.api.dependencias import SIN_CACHE, obtener_sistema
+from pgc.api.esquemas import Cliente, ControlKinect, Eco, Protocolo, TomarTurno
+from pgc.api.seguridad import es_admin, ip_real, limitar, verificar_admin
+from pgc.aplicacion.senas import SinControles
+from pgc.aplicacion.sistema import ParticipanteBloqueado, SinPermisoKinect
+from pgc.aplicacion.turno import CodigoIncorrecto, TurnoOcupado
+
+router = APIRouter()
+
+
+@router.post("/api/kinect/turno")
+def tomar_turno(datos: TomarTurno, request: Request, sistema=Depends(obtener_sistema)):
+    limitar(request, "kinect", datos.cliente, sistema.cfg.lim_kinect_cliente)
+    # Adivinar el código: 1 entre un millón y, por IP, unos 30 intentos por minuto
+    limitar(request, "kinect-turno-ip", ip_real(request), 30)
+    try:
+        sistema.tomar_turno_kinect(datos.cliente, datos.codigo)
+    except (ParticipanteBloqueado, CodigoIncorrecto) as ex:
+        raise HTTPException(403, str(ex))
+    except TurnoOcupado as ex:
+        raise HTTPException(409, str(ex))
+    return {"ok": True}
+
+
+@router.post("/api/kinect/turno/soltar")
+def soltar_turno(datos: Cliente, sistema=Depends(obtener_sistema)):
+    sistema.soltar_turno_kinect(datos.cliente)
+    return {"ok": True}
+
+
+@router.post("/api/kinect/control")
+def controlar(datos: ControlKinect, request: Request, sistema=Depends(obtener_sistema)):
+    presentador = es_admin(request, request.app.state.token_admin)
+    if not presentador:
+        limitar(request, "kinect-ip", ip_real(request), sistema.cfg.lim_kinect_cliente * 2)
+        if datos.cliente:
+            limitar(request, "kinect", datos.cliente, sistema.cfg.lim_kinect_cliente)
+    try:
+        sistema.controlar_kinect(datos.accion, datos.cliente, presentador=presentador)
+    except (SinPermisoKinect, ParticipanteBloqueado) as ex:
+        raise HTTPException(403, str(ex))
+    except SinControles as ex:
+        raise HTTPException(409, str(ex))
+    except RuntimeError as ex:                 # el detector no responde o rechazó la orden
+        raise HTTPException(503, str(ex))
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------- solo el presentador
+@router.post("/api/kinect/liberar", dependencies=[Depends(verificar_admin)])
+def liberar_turno(sistema=Depends(obtener_sistema)):
+    sistema.liberar_turno_kinect()
+    return {"ok": True}
+
+
+@router.get("/api/kinect/codigo", dependencies=[Depends(verificar_admin)])
+def ver_codigo(sistema=Depends(obtener_sistema)):
+    """El código para tomar el turno: solo el proyector lo recibe (con el token), nunca por el WebSocket."""
+    turno = sistema.senas.turno
+    return Response(json.dumps({"activo": turno.con_codigo, "codigo": turno.codigo,
+                                "version": turno.version_codigo}), media_type="application/json", headers=SIN_CACHE)
+
+
+@router.post("/api/kinect/codigo", dependencies=[Depends(verificar_admin)])
+def regenerar_codigo(sistema=Depends(obtener_sistema)):
+    if not sistema.senas.turno.con_codigo:
+        raise HTTPException(409, "El código está desactivado (PGC_KINECT_CODIGO=false).")
+    codigo = sistema.regenerar_codigo_kinect()
+    return Response(json.dumps({"activo": True, "codigo": codigo, "version": sistema.senas.turno.version_codigo}),
+                    media_type="application/json", headers=SIN_CACHE)
+
+
+@router.post("/api/kinect/eco")
+def eco(datos: Eco, request: Request, sistema=Depends(obtener_sistema)):
+    """El presentador (PC con token) o el celular que tiene el turno del Kinect."""
+    presentador = es_admin(request, request.app.state.token_admin)
+    if not presentador and datos.cliente:
+        limitar(request, "kinect", datos.cliente, sistema.cfg.lim_kinect_cliente)
+    try:
+        sistema.fijar_eco(datos.activo, datos.cliente, presentador=presentador)
+    except (SinPermisoKinect, ParticipanteBloqueado) as ex:
+        raise HTTPException(403, str(ex))
+    return {"eco": sistema.eco}
+
+
+@router.get("/api/kinect/diagnostico", dependencies=[Depends(verificar_admin)])
+def diagnostico(sistema=Depends(obtener_sistema)):
+    """Por qué una letra se confirma o no, en vivo. Solo en el PC (como la cámara)."""
+    datos = sistema.senas.diagnostico()
+    if datos is None:
+        raise HTTPException(503, "El detector no da diagnóstico (¿Kinect no conectado, o el detector original "
+                                 "con PGC_KINECT_DETECTOR_PARALELO=false?).")
+    return Response(json.dumps(datos, ensure_ascii=False), media_type="application/json", headers=SIN_CACHE)
+
+
+@router.post("/api/kinect/protocolo/iniciar", dependencies=[Depends(verificar_admin)])
+def iniciar_protocolo(datos: Protocolo, sistema=Depends(obtener_sistema)):
+    diag = sistema.senas.diagnostico() or {}
+    del_modelo = [c for c in diag.get("categorias", []) if c != "sin_letra"]
+    letras = [l for l in (datos.letras or "").replace(",", " ").split() if l] or del_modelo
+    fuera = [l for l in letras if del_modelo and l not in del_modelo]
+    if not letras or fuera:
+        raise HTTPException(400, f"Letras que el modelo no tiene: {', '.join(fuera)}" if fuera else
+                                 "No hay letras para probar (¿Kinect no conectado?).")
+    try:
+        sistema.protocolo.iniciar(letras, datos.repeticiones, datos.tiempo_max)
+    except RuntimeError as ex:
+        raise HTTPException(409, str(ex))
+    return sistema.protocolo.estado()
+
+
+@router.post("/api/kinect/protocolo/detener", dependencies=[Depends(verificar_admin)])
+def detener_protocolo(sistema=Depends(obtener_sistema)):
+    sistema.protocolo.detener()
+    return {"ok": True}
+
+
+@router.get("/api/kinect/protocolo", dependencies=[Depends(verificar_admin)])
+def estado_protocolo(sistema=Depends(obtener_sistema)):
+    return Response(json.dumps(sistema.protocolo.estado(), ensure_ascii=False), media_type="application/json",
+                    headers=SIN_CACHE)
+
+
+@router.get("/api/kinect/imagen", dependencies=[Depends(verificar_admin)])
+def imagen(despues: int | None = Query(default=None, ge=0), sistema=Depends(obtener_sistema)):
+    """La cámara con los puntos de la mano: solo en el PC del proyector, nunca por el túnel ni la red.
+
+    ?despues=N: responde apenas haya un cuadro más nuevo que N (o tras 1 s con el último).
+    """
+    foto = sistema.senas.imagen_con_estado(despues, 1.0 if despues is not None else 0.0)
+    if not foto:
+        raise HTTPException(503, "No llegan imágenes del Kinect.")
+    # El estado del MISMO momento que la imagen, para que el proyector los muestre juntos
+    cabeceras = {**SIN_CACHE, "X-Kinect-Texto": quote(foto.get("texto") or ""),
+                 "X-Kinect-Detalle": quote(foto.get("detalle") or "")}
+    for clave, nombre in (("cuadro", "X-Kinect-Cuadro"), ("edad_ms", "X-Kinect-Edad-Ms"),
+                          ("desfase_ms", "X-Kinect-Desfase-Ms")):
+        if foto.get(clave) is not None:
+            cabeceras[nombre] = str(foto[clave])
+    return Response(foto["jpeg"], media_type="image/jpeg", headers=cabeceras)
 ```
 
 ## `pgc/api/rutas/mensajes.py`
@@ -1791,7 +3154,7 @@ def nuevo_mensaje(datos: Texto, request: Request, sistema=Depends(obtener_sistem
         raise HTTPException(403, str(ex))
     except ValueError as ex:
         raise HTTPException(400, str(ex))
-    return {"id": msg["id"], "texto": msg["texto"], "sesion": sistema.sesion}
+    return {"id": msg["id"], "texto": msg["texto"], "nombre": msg["nombre"], "sesion": sistema.sesion}
 
 
 @router.delete("/api/mensaje/{id_msg}")
@@ -1835,6 +3198,12 @@ def pagina_movil(request: Request):
 def pagina_pantalla(request: Request):
     # Solo el navegador del PC recibe el token: por el túnel o la red local se ve sin controles
     return pagina("pantalla.html", request, con_token=True)
+
+
+@router.get("/diagnostico")
+def pagina_diagnostico(request: Request):
+    # Vista de diagnóstico del Kinect: solo el navegador del PC recibe el token (por el túnel no funciona)
+    return pagina("diagnostico.html", request, con_token=True)
 
 
 @router.get("/logo-udec.png")
@@ -2285,6 +3654,7 @@ import threading
 import time
 from collections import deque
 
+from pgc.dominio.participante import ANONIMO
 from pgc.dominio.texto import a_secuencia, limpiar
 
 
@@ -2313,7 +3683,11 @@ class ColaDeMensajes:
         return f"#{msg['id']} ({sum(p['tipo'] != 'espacio' for p in msg['pasos'])} letras)"
 
     def encolar(self, texto, cliente, letras_mano=None, autor=None):
-        """autor: {"pid", "nombre"} del participante (se muestra en el proyector)."""
+        """autor: {"pid", "nombre"} del participante (se muestra en el proyector).
+
+        El nombre se copia al mensaje al encolarlo, tal como lo escribió la persona;
+        sin nombre queda "Anónimo".
+        """
         original = texto
         texto = limpiar(texto, self.max_caracteres)
         pasos = a_secuencia(texto, letras_mano, self.max_caracteres)
@@ -2335,7 +3709,7 @@ class ColaDeMensajes:
                 raise ValueError("La cola está llena, intenta en un momento.")
             autor = autor or {}
             msg = {"id": next(self._ids), "texto": texto, "cliente": cliente,
-                   "pid": autor.get("pid"), "nombre": autor.get("nombre"),
+                   "pid": autor.get("pid"), "nombre": autor.get("nombre") or ANONIMO,
                    "pasos": pasos, "i": -1, "creado": time.time()}
             self.pendientes.append(msg)
             self.cv.notify_all()
@@ -2410,7 +3784,8 @@ class ColaDeMensajes:
                           "pasos": [{"c": p["c"], "tipo": p["tipo"], "r": p.get("r")} for p in m["pasos"]]}
             cola = [{"id": m["id"], "texto": m["texto"], "pid": m.get("pid"), "nombre": m.get("nombre")}
                     for m in self.pendientes]
-            historial = [{"id": m["id"], "texto": m["texto"], "saltado": m.get("saltado", False)}
+            historial = [{"id": m["id"], "texto": m["texto"], "nombre": m.get("nombre") or ANONIMO,
+                          "saltado": m.get("saltado", False)}
                          for m in self.historial]
         return actual, cola, historial
 ```
@@ -2556,7 +3931,8 @@ class Publicador:
         self.suscriptores.discard(q)
 
 
-def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_caracteres, cola, bloqueados=()):
+def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_caracteres, cola, bloqueados=(),
+                        kinect=None, voz_salida="desactivado"):
     actual, pendientes, historial = cola.instantanea()
     return {
         "tipo": "estado",
@@ -2567,7 +3943,9 @@ def instantanea_sistema(sesion, mano, voz, tunel, url_local, url_publica, max_ca
         "tunel": {"estado": tunel.estado, "url": tunel.url},
         "url_local": url_local,
         "url_publica": url_publica,
-        "kinect": {"estado": "pendiente"},
+        "voz_salida": {"estado": voz_salida},
+        # estado, detalle, texto en curso, conectado/camara/activo, frases, turno (pid y nombre) y eco
+        "kinect": kinect or {"estado": "apagado"},
         "max_caracteres": max_caracteres,
         "actual": actual,
         "cola": pendientes,
@@ -2659,6 +4037,193 @@ class Participantes:
             return sorted(d["pid"] for d in self._por_cliente.values() if d["bloqueado"])
 ```
 
+## `pgc/aplicacion/protocolo.py`
+
+```python
+"""Protocolo de prueba de letras: pide cada letra N veces y registra qué reconoce el detector y en cuánto tiempo.
+
+Flujo de cada intento:
+  pedir    "Haz la letra A (intento 2 de 5)". Termina cuando el texto del detector crece (letra confirmada:
+           acierto o confusión) o cuando pasan `tiempo_max` s (no detectada). El tiempo se cuenta desde
+           la primera imagen con mano, para no medir lo que tarda la persona en reaccionar.
+  retirar  "Retira la mano". Hasta que no haya mano y su lógica esté lista para otra letra (o 3 s);
+           entonces se limpia el texto del detector y empieza el siguiente intento.
+Cada muestra del diagnóstico (~10/s) se guarda para el análisis (pgc/dominio/experimento.py).
+
+ProtocoloLetras es pura (recibe muestras y la hora): se prueba con una línea de tiempo inventada.
+ServicioProtocolo la alimenta desde un hilo y guarda los resultados al terminar.
+"""
+import threading
+import time
+from collections import Counter
+
+
+class ProtocoloLetras:
+    def __init__(self, letras, repeticiones=5, tiempo_max=8.0, espera_retirar=3.0):
+        self.plan = [(letra, k) for letra in letras for k in range(1, repeticiones + 1)]
+        self.repeticiones = repeticiones
+        self.tiempo_max = tiempo_max
+        self.espera_retirar = espera_retirar
+        self.i = 0
+        self.fase = "listo"                 # listo | pedir | retirar | terminado | detenido
+        self.intentos = []                  # resultados (ver pgc/dominio/experimento.py)
+        self.muestras = []                  # todas las muestras del diagnóstico, con el intento al que pertenecen
+        self._actual = []                   # muestras del intento en curso
+        self._t_diag = None                 # hora (del detector) de la última imagen vista
+        self._t_corte = None                # imágenes procesadas hasta aquí son de antes de limpiar
+
+    @property
+    def total(self):
+        return len(self.plan)
+
+    @property
+    def pedida(self):
+        return self.plan[self.i] if self.i < len(self.plan) else (None, None)
+
+    def iniciar(self, ahora):
+        self._abrir(ahora, texto="")
+        return ["iniciar", "limpiar"]
+
+    def detener(self):
+        if self.fase not in ("terminado",):
+            self.fase = "detenido"
+
+    def _abrir(self, ahora, texto):
+        # El diagnóstico se actualiza con cada IMAGEN: hasta que llegue una nueva, puede seguir mostrando
+        # el texto de antes de limpiar. Esas muestras no cuentan para decidir si se confirmó una letra.
+        self._t_corte = self._t_diag
+        self.fase = "pedir"
+        self._t0 = ahora
+        self._t_mano = None
+        self._texto0 = texto
+        self._actual = []
+
+    def muestra(self, d, ahora):
+        """Procesa una muestra del diagnóstico. Devuelve las órdenes para el detector (p. ej. ["limpiar"])."""
+        if self.fase not in ("pedir", "retirar") or d is None:
+            return []
+        letra, k = self.pedida
+        fila = {"t": round(ahora, 3), "fase": self.fase, "letra": letra, "intento": k,
+                "manos": d.get("manos"), "prediccion": d.get("prediccion"), "segunda": d.get("segunda"),
+                "margen": d.get("margen"), "estable_s": d.get("estable_s"), "confirmaciones": d.get("confirmaciones"),
+                "motivo": d.get("motivo"), "texto": d.get("texto")}
+        self.muestras.append(fila)
+        texto = (d.get("texto") or "")
+        vieja = self._t_corte is not None and (d.get("t") or 0) <= self._t_corte
+        self._t_diag = d.get("t", self._t_diag)
+        if self.fase == "pedir":
+            self._actual.append(fila)
+            if (d.get("manos") or 0) >= 1 and self._t_mano is None:
+                self._t_mano = ahora
+            nuevo = "" if vieja else (texto[len(self._texto0):].strip() if texto.startswith(self._texto0)
+                                      else texto.strip())
+            if nuevo:                                            # su lógica confirmó una letra
+                self._cerrar(nuevo[-1].lower(), ahora)
+            elif ahora - self._t0 >= self.tiempo_max:
+                self._cerrar(None, ahora)
+            return []
+        # retirar: sin mano y su lógica lista para otra letra (armado), o tiempo agotado
+        if ((d.get("manos") == 0 and d.get("armado")) or ahora - self._t_retirar >= self.espera_retirar):
+            self.i += 1
+            if self.i >= len(self.plan):
+                self.fase = "terminado"
+                return ["limpiar"]
+            self._abrir(ahora, texto="")
+            return ["limpiar"]
+        return []
+
+    def _cerrar(self, reconocida, ahora):
+        letra, k = self.pedida
+        con_mano = [m for m in self._actual if (m["manos"] or 0) == 1]
+        preds = [m["prediccion"] for m in con_mano if m["prediccion"]]
+        cambios = sum(1 for a, b in zip(preds, preds[1:]) if a != b)
+        margenes = [m["margen"] for m in con_mano if m["margen"] is not None]
+        motivos = Counter(m["motivo"] for m in self._actual if m["motivo"])
+        n = len(self._actual) or 1
+        self.intentos.append({
+            "letra": letra, "intento": k, "reconocida": reconocida,
+            "tiempo_s": round(ahora - (self._t_mano if self._t_mano is not None else self._t0), 2)
+            if reconocida else None,
+            "mano_pct": round(100 * len(con_mano) / n, 1),
+            "prediccion_frecuente": Counter(preds).most_common(1)[0][0] if preds else None,
+            "margen_medio": round(sum(margenes) / len(margenes), 3) if margenes else None,
+            "estable_max_s": max((m["estable_s"] or 0 for m in self._actual), default=0.0),
+            "cambios": cambios,
+            "sin_letra_pct": round(100 * preds.count("sin_letra") / len(preds), 1) if preds else 0.0,
+            "motivo_frecuente": motivos.most_common(1)[0][0] if motivos else None,
+        })
+        self.fase = "retirar"
+        self._t_retirar = ahora
+
+    def estado(self):
+        letra, k = self.pedida
+        return {"fase": self.fase, "letra": letra, "intento": k, "repeticiones": self.repeticiones,
+                "hecho": len(self.intentos), "total": self.total, "ultimos": self.intentos[-8:][::-1]}
+
+
+class ServicioProtocolo:
+    """Corre el protocolo en un hilo (~10 muestras/s) y guarda los resultados al terminar."""
+
+    def __init__(self, senas, guardar=None, log=print, al_cambiar=None, reloj=time.monotonic, periodo=0.1):
+        self.senas = senas
+        self.guardar = guardar               # (protocolo, info) -> carpeta; lo pone arranque.py
+        self.log = log
+        self.al_cambiar = al_cambiar or (lambda: None)
+        self._reloj = reloj
+        self.periodo = periodo
+        self.protocolo = None
+        self.carpeta = None
+        self.error = None
+        self.informe = None
+        self._hilo = None
+
+    @property
+    def corriendo(self):
+        return bool(self.protocolo and self.protocolo.fase in ("pedir", "retirar"))
+
+    def iniciar(self, letras, repeticiones=5, tiempo_max=8.0):
+        if self.corriendo:
+            raise RuntimeError("Ya hay un protocolo en curso.")
+        if self.senas.diagnostico() is None:
+            raise RuntimeError("El detector no da diagnóstico (¿Kinect no conectado o detector original?).")
+        self.protocolo = ProtocoloLetras(letras, repeticiones, tiempo_max)
+        self.carpeta = self.error = self.informe = None
+        for orden in self.protocolo.iniciar(self._reloj()):
+            self.senas.controlar(orden)
+        self.log(f"[kinect] Protocolo de letras: {len(letras)} letras × {repeticiones}")
+        self._hilo = threading.Thread(target=self._bucle, daemon=True, name="protocolo")
+        self._hilo.start()
+        self.al_cambiar()
+
+    def detener(self):
+        if self.protocolo:
+            self.protocolo.detener()
+
+    def _bucle(self):
+        p = self.protocolo
+        while p.fase in ("pedir", "retirar"):
+            try:
+                for orden in p.muestra(self.senas.diagnostico(), self._reloj()):
+                    self.senas.controlar(orden)
+            except Exception as ex:                         # nunca dejar morir el hilo sin avisar
+                self.error = f"{type(ex).__name__}: {ex}"
+                p.detener()
+                break
+            time.sleep(self.periodo)
+        if p.intentos and self.guardar:
+            try:
+                self.carpeta, self.informe = self.guardar(p, {"detenido": p.fase == "detenido"})
+                self.log(f"[kinect] Protocolo guardado en {self.carpeta}")
+            except Exception as ex:
+                self.error = f"No se pudieron guardar los resultados: {type(ex).__name__}: {ex}"
+        self.al_cambiar()
+
+    def estado(self):
+        if not self.protocolo:
+            return {"fase": "sin_iniciar"}
+        return {**self.protocolo.estado(), "carpeta": self.carpeta, "error": self.error, "informe": self.informe}
+```
+
 ## `pgc/aplicacion/senas.py`
 
 ```python
@@ -2671,10 +4236,17 @@ a una cola y un hilo propio los procesa, así el reconocedor nunca se bloquea
 """
 import queue
 import threading
+import time
 
+from pgc.aplicacion.turno import TurnoKinect
 from pgc.puertos.reconocedor import problemas_del_evento
 
 MAX_TEXTO = 60
+ACCIONES = ("iniciar", "detener", "espacio", "borrar", "limpiar", "terminar")
+
+
+class SinControles(RuntimeError):
+    """El reconocedor configurado no tiene controles (p. ej. el simulado)."""
 
 
 class ReconocedorNulo:
@@ -2690,7 +4262,8 @@ class ReconocedorNulo:
 
 
 class ServicioSenas:
-    def __init__(self, reconocedor, al_frase=None, al_cambiar=None, log=print, moderador=None):
+    def __init__(self, reconocedor, al_frase=None, al_cambiar=None, log=print, moderador=None,
+                 turno_segundos=120.0, reloj=time.monotonic, turno_codigo=False):
         self.reconocedor = reconocedor
         self.moderador = moderador      # la frase pasa por el mismo filtro que los mensajes
         self.al_frase = al_frase or (lambda texto: None)
@@ -2698,6 +4271,7 @@ class ServicioSenas:
         self.log = log
         self.texto = ""                 # frase en construcción
         self.frases = []                # frases terminadas en esta sesión (las últimas 10)
+        self.turno = TurnoKinect(turno_segundos, reloj, con_codigo=turno_codigo)
         self._eventos = queue.Queue(maxsize=500)
         self._iniciado = False
 
@@ -2730,9 +4304,16 @@ class ServicioSenas:
 
     def _procesar(self):
         while True:
-            evento = self._eventos.get()
             try:
-                self._aplicar(evento)
+                evento = self._eventos.get(timeout=1.0)
+            except queue.Empty:
+                evento = None
+            try:
+                if evento is not None:
+                    self._aplicar(evento)
+                if self.turno.revisar():     # un turno vencido se libera solo
+                    self.log("[kinect] Turno liberado por inactividad")
+                    self.al_cambiar()
             except Exception as ex:      # nunca dejar morir el hilo
                 self.log(f"[kinect] Error procesando un evento: {type(ex).__name__}")
 
@@ -2756,8 +4337,50 @@ class ServicioSenas:
                 self.al_frase(frase)
         self.al_cambiar()
 
+    # ---------------------------------------------------------------- controles
+    @property
+    def tiene_controles(self):
+        return callable(getattr(self.reconocedor, "controlar", None))
+
+    def controlar(self, accion):
+        """Pasa la orden al reconocedor (contrato §3.1). Sus errores llegan como RuntimeError con el motivo."""
+        if accion not in ACCIONES:
+            raise ValueError("Acción no válida.")
+        if not self.tiene_controles:
+            raise SinControles("Este Kinect no tiene controles.")
+        self.reconocedor.controlar(accion)
+        self.al_cambiar()
+
+    def diagnostico(self):
+        """Diagnóstico en vivo del detector (solo para el PC), o None si el reconocedor no lo tiene."""
+        obtener = getattr(self.reconocedor, "diagnostico", None)
+        return obtener() if callable(obtener) else None
+
+    def imagen(self):
+        """JPEG con los puntos de la mano (solo para el proyector del PC), o None."""
+        obtener = getattr(self.reconocedor, "imagen", None)
+        return obtener() if callable(obtener) else None
+
+    def imagen_con_estado(self, despues=None, espera=0.0):
+        """La imagen y el estado del mismo momento ({"jpeg", "texto", "detalle", "cuadro", "edad_ms",
+        "desfase_ms"}), o None. Si el reconocedor solo tiene imagen(), se arma con el estado actual."""
+        obtener = getattr(self.reconocedor, "imagen_con_estado", None)
+        if callable(obtener):
+            return obtener(despues, espera)
+        jpeg = self.imagen()
+        return jpeg and {"jpeg": jpeg, "texto": self.texto, "detalle": self.reconocedor.detalle}
+
     def instantanea(self):
-        return {"estado": self.reconocedor.estado, "detalle": self.reconocedor.detalle, "texto": self.texto}
+        r = self.reconocedor
+        return {"estado": r.estado, "detalle": r.detalle, "texto": self.texto,
+                "conectado": bool(getattr(r, "conectado", r.estado not in ("apagado", "error"))),
+                "camara": bool(getattr(r, "camara", False)),
+                "activo": bool(getattr(r, "activo", False)),
+                "controles": self.tiene_controles,
+                "frases": self.frases[-3:],
+                "turno": self.turno.instantanea(),
+                # Si hace falta el código del proyector y su versión, NUNCA el código (esto va a los celulares)
+                "codigo": self.turno.con_codigo, "codigo_version": self.turno.version_codigo}
 ```
 
 ## `pgc/aplicacion/sistema.py`
@@ -2767,14 +4390,38 @@ class ServicioSenas:
 
 Recibe los componentes ya armados (mano, voz, túnel); quien los crea es pgc/arranque.py.
 """
+import queue
+import threading
 import time
 
 from pgc.aplicacion.cola import ColaDeMensajes
 from pgc.aplicacion.deletreo import Deletreador
 from pgc.aplicacion.estado import instantanea_sistema
 from pgc.aplicacion.participantes import Participantes
+from pgc.aplicacion.protocolo import ServicioProtocolo
 from pgc.aplicacion.senas import ReconocedorNulo, ServicioSenas
 from pgc.dominio.participante import MSG_BLOQUEADO
+
+CLIENTE_KINECT = "kinect"        # el "celular" del modo eco: sus mensajes van a la cola como los demás
+AUTOR_KINECT = {"pid": None, "nombre": "Kinect"}
+
+
+class SintetizadorNulo:
+    """Sin voz de salida: cumple el puerto y no dice nada."""
+    estado = "desactivado"
+
+    def cargar_en_segundo_plano(self):
+        pass
+
+    def decir(self, texto):
+        pass
+
+
+class SinPermisoKinect(Exception):
+    """Solo quien tiene el turno (o el presentador) controla el Kinect."""
+
+    def __init__(self):
+        super().__init__("Toma el control del Kinect para usar estos botones.")
 
 
 class ParticipanteBloqueado(Exception):
@@ -2785,7 +4432,8 @@ class ParticipanteBloqueado(Exception):
 
 
 class Sistema:
-    def __init__(self, cfg, mano, voz, tunel, url_local, publicador, log=print, moderador=None, reconocedor=None):
+    def __init__(self, cfg, mano, voz, tunel, url_local, publicador, log=print, moderador=None, reconocedor=None,
+                 sintetizador=None, reloj=time.monotonic, guardar_experimento=None):
         self.cfg = cfg
         self.log = log
         self.sesion = str(int(time.time()))   # cambia en cada arranque del servidor
@@ -2800,9 +4448,17 @@ class Sistema:
         self._cola = ColaDeMensajes(cfg.max_pendientes_cliente, cfg.max_cola, cfg.historial, cfg.max_caracteres,
                                     al_cambiar=self.notificar, log=log, moderador=moderador,
                                     log_textos=cfg.log_textos)
-        # Kinect (fase 2+): por ahora solo recibe frases; la pantalla y el eco llegan en las fases 4–5
+        # Kinect → texto → voz (y, en modo eco, → mano)
         self.senas = ServicioSenas(reconocedor or ReconocedorNulo(), al_frase=self._frase_reconocida,
-                                   al_cambiar=self.notificar, log=log, moderador=moderador)
+                                   al_cambiar=self.notificar, log=log, moderador=moderador,
+                                   turno_segundos=cfg.kinect_turno_segundos, reloj=reloj,
+                                   turno_codigo=cfg.kinect_codigo)
+        self.voz_salida = sintetizador or SintetizadorNulo()
+        self.eco = cfg.kinect_eco
+        self._por_decir = queue.Queue(maxsize=10)
+        # Protocolo de prueba de letras (vista de diagnóstico del PC); guarda en experimentos/
+        self.protocolo = ServicioProtocolo(self.senas, guardar=guardar_experimento, log=log)
+        self._locutor = None
         self.deletreador = Deletreador(self._cola, mano, self.notificar, log,
                                        cfg.pausa_letra, cfg.pausa_no_disponible,
                                        simular=cfg.mano == "simulada", autodeteccion_cada=cfg.autodeteccion_cada)
@@ -2834,9 +4490,11 @@ class Sistema:
         return self.tunel.url or self.url_local
 
     def instantanea(self):
+        kinect = {**self.senas.instantanea(), "eco": self.eco}
         return instantanea_sistema(self.sesion, self.mano, self.voz, self.tunel, self.url_local,
                                    self.url_publica, self.cfg.max_caracteres, self._cola,
-                                   self.participantes.bloqueados())
+                                   self.participantes.bloqueados(), kinect=kinect,
+                                   voz_salida=self.voz_salida.estado)
 
     # ----------------------------------------------------------- operaciones
     def notificar(self):
@@ -2866,8 +4524,10 @@ class Sistema:
         cancelados = self._cola.cancelar_de_cliente(cliente)
         actual = self._cola.actual
         saltado = bool(actual and actual["cliente"] == cliente and self._cola.saltar_actual())
+        sin_turno = self.senas.turno.soltar(cliente)     # tampoco sigue controlando el Kinect
         self.log(f"[participantes] {pid}: {cancelados} pendiente(s) cancelado(s)"
-                 + ("; se saltó el mensaje en curso" if saltado else ""))
+                 + ("; se saltó el mensaje en curso" if saltado else "")
+                 + ("; perdió el turno del Kinect" if sin_turno else ""))
         self.notificar()
         return {"cancelados": cancelados, "saltado": saltado}
 
@@ -2889,8 +4549,204 @@ class Sistema:
     def iniciar_trabajador(self):
         self.deletreador.iniciar()
 
+    # ----------------------------------------------------------- Kinect
+    def tomar_turno_kinect(self, cliente, codigo=None):
+        autor = self.participantes.obtener(cliente)
+        if autor["bloqueado"]:
+            raise ParticipanteBloqueado()
+        # TurnoOcupado si lo tiene otro; CodigoIncorrecto si no es el del proyector
+        self.senas.turno.tomar(cliente, autor["pid"], autor["nombre"], codigo)
+        self.notificar()
+
+    def soltar_turno_kinect(self, cliente):
+        if self.senas.turno.soltar(cliente):
+            self.notificar()
+
+    def liberar_turno_kinect(self):
+        if self.senas.turno.liberar():
+            self.log("[kinect] El presentador liberó el turno")
+            self.notificar()
+
+    def regenerar_codigo_kinect(self):
+        """Código nuevo en el proyector; quien tenía el turno lo pierde."""
+        codigo = self.senas.turno.regenerar_codigo()
+        if codigo:
+            self.log("[kinect] El presentador cambió el código del turno")
+            self.notificar()
+        return codigo
+
+    def controlar_kinect(self, accion, cliente=None, presentador=False):
+        """El presentador siempre; un celular, solo si tiene el turno y no está bloqueado."""
+        if not presentador:
+            if cliente is None or not self.senas.turno.es_dueno(cliente):
+                raise SinPermisoKinect()
+            if self.participantes.esta_bloqueado(cliente):
+                raise ParticipanteBloqueado()
+            self.senas.turno.usar(cliente)
+        self.senas.controlar(accion)
+
+    def fijar_eco(self, activo, cliente=None, presentador=False):
+        """El presentador siempre; un celular, solo si tiene el turno del Kinect (como los demás controles)."""
+        if not presentador:
+            if cliente is None or not self.senas.turno.es_dueno(cliente):
+                raise SinPermisoKinect()
+            if self.participantes.esta_bloqueado(cliente):
+                raise ParticipanteBloqueado()
+            self.senas.turno.usar(cliente)
+        self.eco = bool(activo)
+        self.log(f"[kinect] Modo eco {'activado' if self.eco else 'desactivado'}")
+        self.notificar()
+
     def _frase_reconocida(self, frase):
+        """'fin' del Kinect: la frase se dice en los parlantes y, en modo eco, la mano la deletrea."""
         self.log(f"[kinect] Frase reconocida ({len(frase)} caracteres)")
+        self._decir(frase)
+        if self.eco:
+            try:
+                self._cola.encolar(frase, CLIENTE_KINECT, self.mano.letras, AUTOR_KINECT)
+            except ValueError as ex:          # p. ej. ninguna letra que la mano pueda hacer
+                self.log(f"[kinect] Eco: la frase no va a la mano ({ex})")
+
+    def _decir(self, frase):
+        """La voz va en su propio hilo: decir() bloquea mientras habla y no debe frenar al Kinect."""
+        if self._locutor is None:
+            self._locutor = threading.Thread(target=self._hablar, daemon=True, name="voz-salida")
+            self._locutor.start()
+        try:
+            self._por_decir.put_nowait(frase)
+        except queue.Full:
+            self.log("[voz] Demasiadas frases por decir; se omite una")
+
+    def _hablar(self):
+        while True:
+            frase = self._por_decir.get()
+            try:
+                self.voz_salida.decir(frase)
+            except Exception as ex:           # la voz nunca tumba el servidor
+                self.log(f"[voz] No se pudo decir la frase: {type(ex).__name__}")
+```
+
+## `pgc/aplicacion/turno.py`
+
+```python
+"""Turno del Kinect: un solo jurado lo controla a la vez desde su celular.
+
+Quien toma el turno puede iniciar, detener, poner espacio, borrar y terminar.
+El turno se libera al soltarlo, al bloquear a esa persona, cuando el presentador
+lo libera o, solo, tras `segundos` sin usar los controles. El presentador (PC con
+token) controla siempre, tenga o no alguien el turno.
+
+Con `con_codigo`, para tomar el turno hay que escribir el código de 6 dígitos que
+muestra el proyector (como el «Código del PC» del diseño de Camila): así solo
+controla quien está en la sala. Cambia en cada arranque y el presentador puede
+regenerarlo (eso también quita el turno a quien lo tenga).
+"""
+import secrets
+import threading
+import time
+
+
+class TurnoOcupado(Exception):
+    """Otro celular tiene el turno."""
+
+    def __init__(self, nombre):
+        quien = nombre or "otra persona"
+        super().__init__(f"El Kinect lo está usando {quien}. Espera tu turno.")
+
+
+class CodigoIncorrecto(Exception):
+    """El código escrito no es el que muestra el proyector."""
+
+    def __init__(self):
+        super().__init__("Código incorrecto. Escribe el código de 6 dígitos que muestra el proyector.")
+
+
+def nuevo_codigo():
+    return f"{secrets.randbelow(10**6):06d}"
+
+
+class TurnoKinect:
+    def __init__(self, segundos=120.0, reloj=time.monotonic, con_codigo=False):
+        self.segundos = segundos
+        self.con_codigo = con_codigo
+        self._reloj = reloj
+        self._lock = threading.Lock()
+        self._dueno = None          # {"cliente", "pid", "nombre", "ultimo"}
+        self._codigo = nuevo_codigo() if con_codigo else None
+        self.version_codigo = 0     # sube al regenerarlo: el proyector sabe que debe pedirlo otra vez
+
+    @property
+    def codigo(self):
+        """Solo para el proyector (ruta con token): nunca va en el estado que reciben los celulares."""
+        return self._codigo
+
+    def regenerar_codigo(self):
+        """Código nuevo; quien tenía el turno lo pierde (tendrá que escribir el nuevo)."""
+        with self._lock:
+            if not self.con_codigo:
+                return None
+            self._codigo = nuevo_codigo()
+            self.version_codigo += 1
+            self._dueno = None
+            return self._codigo
+
+    def _vencido(self):
+        return self._dueno and self._reloj() - self._dueno["ultimo"] >= self.segundos
+
+    def tomar(self, cliente, pid, nombre, codigo=None):
+        """Da el turno si está libre (o vencido) y el código es el del proyector.
+
+        Lanza TurnoOcupado si lo tiene otro y CodigoIncorrecto si el código no coincide.
+        """
+        with self._lock:
+            if self._vencido():
+                self._dueno = None
+            if self._dueno and self._dueno["cliente"] != cliente:
+                raise TurnoOcupado(self._dueno["nombre"])
+            escrito = "".join(c for c in str(codigo or "") if c.isdigit())
+            if self.con_codigo and not secrets.compare_digest(escrito, self._codigo):
+                raise CodigoIncorrecto()
+            self._dueno = {"cliente": cliente, "pid": pid, "nombre": nombre, "ultimo": self._reloj()}
+
+    def es_dueno(self, cliente):
+        with self._lock:
+            return bool(self._dueno and not self._vencido() and self._dueno["cliente"] == cliente)
+
+    def usar(self, cliente):
+        """Cuenta como actividad (reinicia la espera para liberarlo)."""
+        with self._lock:
+            if self._dueno and self._dueno["cliente"] == cliente:
+                self._dueno["ultimo"] = self._reloj()
+
+    def soltar(self, cliente):
+        with self._lock:
+            if self._dueno and self._dueno["cliente"] == cliente:
+                self._dueno = None
+                return True
+            return False
+
+    def liberar(self):
+        """El presentador libera el turno, sea de quien sea."""
+        with self._lock:
+            libre = self._dueno is None
+            self._dueno = None
+            return not libre
+
+    def revisar(self):
+        """Libera el turno vencido. Devuelve True si cambió (para avisar a las pantallas)."""
+        with self._lock:
+            if self._vencido():
+                self._dueno = None
+                return True
+            return False
+
+    def instantanea(self):
+        """Lo que ven las pantallas: alias y nombre, nunca el id privado del celular."""
+        with self._lock:
+            if not self._dueno or self._vencido():
+                return None
+            restante = self.segundos - (self._reloj() - self._dueno["ultimo"])
+            return {"pid": self._dueno["pid"], "nombre": self._dueno["nombre"], "libera_en": round(max(0, restante))}
 ```
 
 ## `pgc/arranque.py`
@@ -2935,29 +4791,61 @@ def ip_local():
     return acceso.ip_local()
 
 
+def puerto_en_uso(puerto):
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.3)
+        return s.connect_ex(("127.0.0.1", puerto)) == 0
+
+
+RECONOCEDORES = {"kinect": "pgc.adaptadores.kinect.reconocedor:ReconocedorKinect"}
+
+
 def cargar_reconocedor(cfg, log):
-    """'simulado' o 'paquete.modulo:Clase'. Si falla, el simulado (la demo no se cae)."""
+    """'kinect', 'simulado' o 'paquete.modulo:Clase'. Si falla, el simulado (la demo no se cae).
+
+    Si la clase tiene desde_config(cfg), se arma con la configuración; si no, sin argumentos (contrato, regla 6).
+    """
     from pgc.adaptadores.reconocedor_simulado import ReconocedorSimulado
     if cfg.reconocedor == "simulado":
         return ReconocedorSimulado()
     try:
-        modulo, clase = cfg.reconocedor.split(":")
-        return getattr(importlib.import_module(modulo), clase)()
+        modulo, nombre = RECONOCEDORES.get(cfg.reconocedor, cfg.reconocedor).split(":")
+        clase = getattr(importlib.import_module(modulo), nombre)
+        return clase.desde_config(cfg) if hasattr(clase, "desde_config") else clase()
     except Exception as ex:
         log(f"[kinect] No se pudo cargar {cfg.reconocedor}: {type(ex).__name__}: {ex} -> simulado")
         return ReconocedorSimulado(detalle="Kinect: no disponible")
 
 
+def crear_sintetizador(cfg, log, al_cambiar):
+    from pgc.adaptadores.voz_salida import SintetizadorCoqui
+    return SintetizadorCoqui(cfg.voz_salida_modelo, log=log, al_cambiar=al_cambiar)
+
+
+def guardar_experimento(protocolo, info):
+    from pgc.adaptadores.experimentos import guardar        # importa matplotlib: solo si se usa
+    return guardar(protocolo, info)
+
+
+def crear_lanzador(cfg, log):
+    from pgc.adaptadores.kinect.procesos import LanzadorKinect
+    return LanzadorKinect(cfg, log)
+
+
 def construir_sistema(cfg, log=registro.log, *, crear_mano=crear_mano, crear_transcriptor=crear_transcriptor,
-                      crear_tunel=crear_tunel, ip_local=ip_local, crear_reconocedor=cargar_reconocedor):
+                      crear_tunel=crear_tunel, ip_local=ip_local, crear_reconocedor=cargar_reconocedor,
+                      crear_sintetizador=crear_sintetizador):
     """Arma el Sistema. Las pruebas pasan sus dobles en lugar de los adaptadores reales."""
     mano = crear_mano(cfg, log)
     publicador = Publicador()
     voz = crear_transcriptor(cfg, log, publicador.notificar)
     tunel = crear_tunel(cfg, log, publicador.notificar)
+    sintetizador = crear_sintetizador(cfg, log, publicador.notificar) if cfg.voz_salida else None
     url_local = f"http://{ip_local()}:{cfg.puerto_web}"
     return Sistema(cfg, mano, voz, tunel, url_local, publicador, log, moderador=cargar_moderador(),
-                   reconocedor=crear_reconocedor(cfg, log))
+                   reconocedor=crear_reconocedor(cfg, log), sintetizador=sintetizador,
+                   guardar_experimento=guardar_experimento)
 
 
 def main(argv=None):
@@ -2976,11 +4864,21 @@ def main(argv=None):
     import uvicorn
     from pgc.api.app import crear_app
 
+    if puerto_en_uso(cfg.puerto_web):
+        # Otra plataforma ya corre (otra ventana de iniciar.bat): sus detector y app no son restos
+        print(f"Ya hay una plataforma corriendo en el puerto {cfg.puerto_web} (¿otra ventana de iniciar.bat?). "
+              "Ciérrala antes de abrir otra.", file=sys.stderr)
+        return 3
     sistema = construir_sistema(cfg)
     app = crear_app(sistema)
-    uvicorn.run(app, host="0.0.0.0", port=cfg.puerto_web, log_level="warning",
-                ws_max_size=64 * 1024,             # el servidor no espera mensajes de los clientes
-                limit_concurrency=cfg.ws_max_conexiones + 200)
+    lanzador = crear_lanzador(cfg, registro.log)     # detector + app del Kinect (o cámara del PC)
+    lanzador.iniciar()
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=cfg.puerto_web, log_level="warning",
+                    ws_max_size=64 * 1024,             # el servidor no espera mensajes de los clientes
+                    limit_concurrency=cfg.ws_max_conexiones + 200)
+    finally:
+        lanzador.detener()                         # y si Python muere a la fuerza, el Job Object los cierra
     return 0
 ```
 
@@ -3002,6 +4900,7 @@ from dotenv import dotenv_values
 
 RAIZ = Path(__file__).resolve().parent.parent
 MODOS_MANO = ("auto", "ble", "usb", "simulada")
+CAPTURADORES = ("auto", "kinect", "camara_pc", "no")
 
 
 class ErrorConfig(ValueError):
@@ -3040,8 +4939,23 @@ class Config:
     voz_max_en_espera: int = 3             # transcripciones esperando turno (además de la que corre)
     # --- túnel
     tunel: bool = True
-    # --- Kinect (fase 2+): "simulado" o "paquete.modulo:Clase" (ver docs/CONTRATO_KINECT.md)
-    reconocedor: str = "simulado"
+    # --- voz de salida (Coqui VITS): dice en los parlantes del PC las frases del Kinect
+    voz_salida: bool = True
+    voz_salida_modelo: str = "tts_models/es/css10/vits"
+    # --- Kinect: "kinect" (detector SVM de integracion_kinect/), "simulado" o "paquete.modulo:Clase"
+    reconocedor: str = "kinect"
+    kinect_url: str = "http://127.0.0.1:8765"   # detector (server_web_svm.py)
+    kinect_intervalo: float = 0.3          # s entre consultas a /spell/status
+    kinect_lanzar: bool = True             # arrancar el detector y el capturador junto con la plataforma
+    kinect_detector_paralelo: bool = True  # su server_web_svm.py envuelto con lecturas en paralelo (detector_paralelo.py)
+    kinect_python: str = ""                # Python del entorno del detector; vacío = buscarlo (ver procesos.py)
+    kinect_capturador: str = "auto"        # auto (app C# si está compilada) | kinect | camara_pc | no
+    kinect_exe: str = ""                   # LSCKinectFramework.exe; vacío = buscarlo en bin/Release o bin/Debug
+    kinect_camara: int = 0                 # cámara del PC para kinect_capturador=camara_pc
+    kinect_turno_segundos: float = 120.0   # el turno de un celular se libera tras este tiempo sin usarlo
+    kinect_codigo: bool = True             # para tomar el turno hay que escribir el código de 6 dígitos del proyector
+    kinect_eco: bool = False               # modo eco al arrancar: la mano repite lo que reconoce el Kinect
+    lim_kinect_cliente: int = 60           # controles del Kinect por minuto y celular
     # --- seguridad
     dev: bool = False                      # publica /docs y /openapi.json (opción --dev)
     texto_max_cuerpo: int = 200            # caracteres que acepta la API antes de recortar a max_caracteres
@@ -3053,7 +4967,7 @@ class Config:
     lim_previa_ip: int = 240
     lim_general_ip: int = 300
     ws_max_conexiones: int = 100
-    ws_max_por_ip: int = 8
+    ws_max_por_ip: int = 40                # por el túnel, los celulares del mismo WiFi comparten una IP
     log_textos: bool = False               # escribir los textos de los mensajes en el log (solo para depurar)
 
     @property
@@ -3138,6 +5052,11 @@ def _desde_opciones(args):
 def validar(cfg):
     if cfg.mano not in MODOS_MANO:
         raise ErrorConfig(f"PGC_MANO debe ser uno de {', '.join(MODOS_MANO)} (llegó {cfg.mano!r})")
+    if cfg.kinect_capturador not in CAPTURADORES:
+        raise ErrorConfig(f"PGC_KINECT_CAPTURADOR debe ser uno de {', '.join(CAPTURADORES)} "
+                          f"(llegó {cfg.kinect_capturador!r})")
+    if not cfg.kinect_url.startswith(("http://127.0.0.1:", "http://localhost:")):
+        raise ErrorConfig("PGC_KINECT_URL debe apuntar a este PC (http://127.0.0.1:<puerto>)")
     if not 1 <= cfg.puerto_web <= 65535:
         raise ErrorConfig(f"puerto web fuera de rango: {cfg.puerto_web}")
     if not cfg.mano_ble_nombre:
@@ -3148,13 +5067,15 @@ def validar(cfg):
         raise ErrorConfig("PGC_MANO=ble necesita PGC_MANO_BLE_TOKEN (el mismo TOKEN de config_ble.py)")
     for nombre in ("max_caracteres", "max_pendientes_cliente", "max_cola", "historial", "audio_max_mb",
                    "texto_max_cuerpo", "json_max_kb", "lim_mensaje_ip", "lim_mensaje_cliente", "lim_transcribir_ip",
-                   "lim_transcribir_cliente", "lim_previa_ip", "lim_general_ip", "ws_max_conexiones", "ws_max_por_ip"):
+                   "lim_transcribir_cliente", "lim_previa_ip", "lim_general_ip", "ws_max_conexiones", "ws_max_por_ip",
+                   "lim_kinect_cliente"):
         if getattr(cfg, nombre) < 1:
             raise ErrorConfig(f"PGC_{nombre.upper()} debe ser mayor que 0")
     if cfg.texto_max_cuerpo < cfg.max_caracteres:
         raise ErrorConfig("PGC_TEXTO_MAX_CUERPO no puede ser menor que PGC_MAX_CARACTERES")
     for nombre in ("pausa_letra", "pausa_no_disponible", "mano_timeout_letra", "mano_tiempo_simulado",
-                   "autodeteccion_cada", "ping_ws", "audio_max_segundos", "voz_max_en_espera", "mano_ble_reintento"):
+                   "autodeteccion_cada", "ping_ws", "audio_max_segundos", "voz_max_en_espera", "mano_ble_reintento",
+                   "kinect_intervalo", "kinect_turno_segundos", "kinect_camara"):
         if getattr(cfg, nombre) < 0:
             raise ErrorConfig(f"PGC_{nombre.upper()} no puede ser negativo")
     return cfg
@@ -3233,6 +5154,113 @@ def cargar_abecedario(ruta=RUTA_LETRAS):
         aproximaciones[letra] = forma
     con_movimiento = _letras("".join(datos.get("con_movimiento", [])), "con_movimiento")
     return Abecedario(por_defecto, aproximaciones, con_movimiento)
+```
+
+## `pgc/dominio/experimento.py`
+
+```python
+"""Análisis del protocolo de letras: tabla por letra, matriz de confusión y causa probable de cada fallo.
+
+Funciones puras (sin archivos ni gráficas): las usan el guardado de experimentos y las pruebas.
+
+Un intento es un dict con: letra (pedida), intento (1..n), reconocida (letra o None), tiempo_s (o None),
+mano_pct (0–100: imágenes con una mano), prediccion_frecuente, margen_medio, estable_max_s,
+cambios (veces que cambió la predicción), sin_letra_pct, motivo_frecuente.
+"""
+from collections import Counter
+
+NINGUNA = "(ninguna)"
+TIEMPO_CONFIRMACION = 0.7            # el de su detector (server_deletreo_svm.py); solo para explicar causas
+
+
+def resultado_de(intento):
+    if intento["reconocida"] is None:
+        return "no_detectada"
+    return "acierto" if intento["reconocida"] == intento["letra"] else "confusion"
+
+
+def resumen_por_letra(intentos):
+    """[{letra, intentos, aciertos, confusiones {letra: n}, no_detectadas, exactitud_pct, tiempo_medio_s}]"""
+    por_letra = {}
+    for it in intentos:
+        por_letra.setdefault(it["letra"], []).append(it)
+    filas = []
+    for letra, lista in por_letra.items():
+        aciertos = [it for it in lista if resultado_de(it) == "acierto"]
+        confusiones = Counter(it["reconocida"] for it in lista if resultado_de(it) == "confusion")
+        tiempos = [it["tiempo_s"] for it in aciertos if it["tiempo_s"] is not None]
+        filas.append({
+            "letra": letra, "intentos": len(lista), "aciertos": len(aciertos),
+            "confusiones": dict(confusiones.most_common()),
+            "no_detectadas": sum(1 for it in lista if resultado_de(it) == "no_detectada"),
+            "exactitud_pct": round(100 * len(aciertos) / len(lista), 1),
+            "tiempo_medio_s": round(sum(tiempos) / len(tiempos), 2) if tiempos else None,
+        })
+    return filas
+
+
+def matriz_confusion(intentos, letras=None):
+    """(filas = letra pedida, columnas = letras reconocidas + "(ninguna)", matriz de conteos)."""
+    pedidas = letras or sorted({it["letra"] for it in intentos})
+    columnas = sorted(set(pedidas) | {it["reconocida"] for it in intentos if it["reconocida"]}) + [NINGUNA]
+    matriz = [[0] * len(columnas) for _ in pedidas]
+    for it in intentos:
+        if it["letra"] in pedidas:
+            matriz[pedidas.index(it["letra"])][columnas.index(it["reconocida"] or NINGUNA)] += 1
+    return pedidas, columnas, matriz
+
+
+def causa_probable(letra, intentos):
+    """La explicación más probable de por qué la letra falla (o None si no falla), con lo que lo sugiere."""
+    lista = [it for it in intentos if it["letra"] == letra]
+    fallos = [it for it in lista if resultado_de(it) != "acierto"]
+    if not fallos:
+        return None
+    media = lambda clave: sum(it.get(clave) or 0 for it in fallos) / len(fallos)
+    confundida = Counter(it["reconocida"] for it in fallos if it["reconocida"])
+    predicha = Counter(it["prediccion_frecuente"] for it in fallos if it.get("prediccion_frecuente"))
+    if media("mano_pct") < 50:
+        return ("mano", f"La mano casi no se detecta ({media('mano_pct'):.0f}% de las imágenes): "
+                        "distancia, luz o la mano fuera de cuadro")
+    if predicha and predicha.most_common(1)[0][0] == "sin_letra" or media("sin_letra_pct") >= 50:
+        return ("sin_letra", "El modelo la ve como «sin letra»: el ángulo o la forma difieren de los ejemplos "
+                             "con que se entrenó (faltan ejemplos de esa letra en esas condiciones)")
+    if confundida:
+        otra, n = confundida.most_common(1)[0]
+        return ("parecida", f"Se confunde con {otra.upper()} ({n} de {len(lista)}): letras parecidas en los "
+                            "puntos de la mano, o el ángulo hace que se vean iguales")
+    if predicha and predicha.most_common(1)[0][0] not in (letra, "sin_letra"):
+        otra = predicha.most_common(1)[0][0]
+        return ("parecida", f"El modelo la ve casi siempre como {otra.upper()} pero sin llegar a confirmarla")
+    if media("cambios") >= 3:
+        return ("inestable", f"La predicción cambia mucho ({media('cambios'):.0f} veces por intento): "
+                             "la mano se mueve, o está justo entre dos letras")
+    if media("estable_max_s") < TIEMPO_CONFIRMACION:
+        return ("tiempo", f"Se reconoce pero no se mantiene {TIEMPO_CONFIRMACION} s seguidos "
+                          f"(máximo {media('estable_max_s'):.2f} s): tiempo de confirmación")
+    if media("margen_medio") < 0.3:
+        return ("margen", "El modelo duda (margen bajo entre la primera y la segunda letra)")
+    return ("otra", "Sin una causa clara en los datos: repetirla con más cuidado y mirar la vista de diagnóstico")
+
+
+def informe(intentos, letras=None):
+    """Resumen para mostrar y guardar: exactitud total, por letra y causas de los fallos."""
+    filas = resumen_por_letra(intentos)
+    total = len(intentos)
+    aciertos = sum(f["aciertos"] for f in filas)
+    tiempos = [it["tiempo_s"] for it in intentos if resultado_de(it) == "acierto" and it["tiempo_s"] is not None]
+    causas = {}
+    for f in filas:
+        c = causa_probable(f["letra"], intentos)
+        if c:
+            causas[f["letra"]] = {"tipo": c[0], "texto": c[1]}
+    return {
+        "intentos": total, "aciertos": aciertos,
+        "exactitud_pct": round(100 * aciertos / total, 1) if total else 0.0,
+        "tiempo_medio_s": round(sum(tiempos) / len(tiempos), 2) if tiempos else None,
+        "por_letra": filas, "causas": causas,
+        "fallan": [f["letra"] for f in sorted(filas, key=lambda f: f["exactitud_pct"]) if f["aciertos"] < f["intentos"]],
+    }
 ```
 
 ## `pgc/dominio/moderacion.py`
@@ -3362,6 +5390,7 @@ def planificar_ordenes(pasos):
 import re
 
 MAX_NOMBRE = 20
+ANONIMO = "Anónimo"          # autor de los mensajes de quien no puso nombre
 _PATRON = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 .'\-]+$")
 MSG_NOMBRE_INVALIDO = f"Usa solo letras en tu nombre (máximo {MAX_NOMBRE})."
 MSG_NOMBRE_OFENSIVO = "Ese nombre no se puede mostrar. Prueba con otro."
@@ -3628,6 +5657,327 @@ def log(msg):
         print(time.strftime("%H:%M:%S"), msg, flush=True)
 ```
 
+## `web/diagnostico.html`
+
+```html
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="pgc-admin" content="">
+<title>Diagnóstico del Kinect · Mano bidireccional LSC</title>
+<script>
+  try { var t = localStorage.getItem("tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root {
+    --fondo: #FFFFFF; --superficie: #F4F6F5; --linea: #E4E8E6;
+    --texto: #141917; --texto-2: #4F5854; --texto-3: #7A837F;
+    --acento: #00482B; --acento-suave: #EEF6F2; --punto-ok: #1A7A55;
+    --aviso: #A86A00; --error: #C2362B; --placa-logo: transparent;
+    --fuente: "Segoe UI Variable Text", -apple-system, system-ui, Roboto, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+      --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+      --acento: #74BA9A; --acento-suave: #0F2A1F; --punto-ok: #74BA9A;
+      --aviso: #E2B04A; --error: #EE7A6E; --placa-logo: #F4F6F5; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fondo: #121615; --superficie: #1A1F1D; --linea: #2A322E;
+    --texto: #EDF1EF; --texto-2: #A3ADA8; --texto-3: #7D8782;
+    --acento: #74BA9A; --acento-suave: #0F2A1F; --punto-ok: #74BA9A;
+    --aviso: #E2B04A; --error: #EE7A6E; --placa-logo: #F4F6F5; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto); }
+  body { font-family: var(--fuente); padding: 20px 28px 32px; -webkit-font-smoothing: antialiased; }
+  header { display: flex; align-items: center; gap: 12px; }
+  .placa { background: var(--placa-logo); border-radius: 8px; padding: 3px 4px; display: grid; }
+  .placa img { height: 40px; display: block; }
+  .pgc { font-size: 12px; font-weight: 600; color: var(--acento); border: 1.5px solid var(--acento); border-radius: 999px; padding: 2px 9px; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  header .derecha { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  a, .boton { font: inherit; font-size: 14px; color: var(--texto-2); background: transparent; border: 1px solid var(--linea);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; text-decoration: none; }
+  .boton:hover:not(:disabled), a:hover { color: var(--texto); border-color: var(--texto-3); }
+  .boton:disabled { opacity: .45; cursor: default; }
+  .boton.principal { background: var(--acento); color: var(--fondo); border-color: var(--acento); font-weight: 600; }
+  main { display: grid; grid-template-columns: minmax(420px, 1.1fr) 1fr; gap: 28px; margin-top: 20px; }
+  .tarjeta { background: var(--superficie); border-radius: 16px; padding: 18px 20px; }
+  h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: .04em; }
+  #cam { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--linea); display: block; }
+  .fila-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .datos { display: grid; grid-template-columns: auto 1fr; gap: 10px 18px; align-items: center; font-size: 17px; }
+  .datos dt { color: var(--texto-2); font-size: 14px; }
+  .datos dd { margin: 0; }
+  .punto { display: inline-block; width: .65em; height: .65em; border-radius: 50%; margin-right: .4em; background: var(--texto-3); }
+  .punto.ok { background: var(--punto-ok); } .punto.aviso { background: var(--aviso); } .punto.error { background: var(--error); }
+  .glifo { font-size: 64px; font-weight: 700; line-height: 1; color: var(--acento); text-transform: uppercase; }
+  .glifo.sin { color: var(--texto-3); font-size: 28px; text-transform: none; }
+  .barra { position: relative; height: 12px; border-radius: 6px; background: var(--linea); overflow: hidden; }
+  .barra > span { position: absolute; inset: 0 auto 0 0; background: var(--acento); border-radius: 6px; transition: width .1s linear; }
+  .barra.aviso > span { background: var(--aviso); }
+  .nota { font-size: 13px; color: var(--texto-3); }
+  .motivo { margin-top: 16px; padding: 14px 16px; border-radius: 12px; font-size: 22px; font-weight: 600; background: var(--fondo); }
+  .motivo.ok { color: var(--punto-ok); } .motivo.aviso { color: var(--aviso); } .motivo.error { color: var(--error); }
+  .texto-detector { font-size: 26px; font-weight: 600; letter-spacing: .05em; min-height: 1.2em; }
+  .protocolo { margin-top: 28px; }
+  .config { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; font-size: 14px; color: var(--texto-2); }
+  .config label { display: grid; gap: 4px; }
+  .config input { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--linea);
+    background: var(--fondo); color: var(--texto); }
+  .config input[name=letras] { width: 360px; }
+  .config input[type=number] { width: 80px; }
+  .pedido { margin-top: 18px; font-size: 44px; font-weight: 700; letter-spacing: -.01em; min-height: 1.2em; }
+  .pedido.retirar { color: var(--texto-2); font-size: 32px; }
+  .progreso { color: var(--texto-2); }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 14px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--linea); }
+  th { color: var(--texto-2); font-weight: 600; }
+  .acierto { color: var(--punto-ok); } .confusion { color: var(--aviso); } .no_detectada { color: var(--error); }
+  .sin-token { margin-top: 40px; font-size: 20px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="placa"><img src="/logo-udec.png" alt="Universidad de Cundinamarca"></div>
+  <span class="pgc">PGC</span>
+  <h1>Diagnóstico del Kinect</h1>
+  <div class="derecha">
+    <a href="/pantalla">Volver al proyector</a>
+    <button id="btnTema" class="boton" type="button">Tema</button>
+  </div>
+</header>
+
+<p id="sinToken" class="sin-token" hidden>Esta vista solo funciona en el PC del proyector: abre <b>http://127.0.0.1:8000/diagnostico</b> allí.</p>
+
+<main id="principal">
+  <section class="tarjeta">
+    <h2>Cámara</h2>
+    <img id="cam" alt="Cámara del Kinect con los puntos de la mano">
+    <div class="fila-botones">
+      <button class="boton" type="button" data-kin="iniciar">Iniciar deletreo</button>
+      <button class="boton" type="button" data-kin="detener">Detener</button>
+      <button class="boton" type="button" data-kin="limpiar">Limpiar</button>
+    </div>
+    <p class="nota">Texto del detector:</p>
+    <div id="texto" class="texto-detector"></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>En vivo</h2>
+    <dl class="datos">
+      <dt>Mano</dt><dd id="mano">—</dd>
+      <dt>Letra posible</dt><dd><span id="letra" class="glifo sin">—</span></dd>
+      <dt>Segunda opción</dt><dd id="segunda">—</dd>
+      <dt>Margen</dt><dd><div class="barra"><span id="margenBarra" style="width:0"></span></div>
+        <span id="margen" class="nota">—</span> <span class="nota">· diferencia entre la 1.ª y la 2.ª letra según el SVM (no es una probabilidad: su modelo no la calcula)</span></dd>
+      <dt>Estable</dt><dd><div id="estableCaja" class="barra aviso"><span id="estableBarra" style="width:0"></span></div>
+        <span id="estable" class="nota">—</span></dd>
+      <dt>Imágenes</dt><dd id="imagenes">—</dd>
+      <dt>Lista para otra letra</dt><dd id="armado">—</dd>
+      <dt>Deletreo</dt><dd id="activo">—</dd>
+    </dl>
+    <div id="motivo" class="motivo">Conectando…</div>
+    <p id="estadoDetector" class="nota"></p>
+  </section>
+</main>
+
+<section id="protocolo" class="tarjeta protocolo">
+  <h2>Protocolo de prueba de letras</h2>
+  <form id="formProtocolo" class="config">
+    <label>Letras (vacío = todas las del modelo)<input name="letras" autocomplete="off" placeholder="a b c d e …"></label>
+    <label>Repeticiones<input name="repeticiones" type="number" min="1" max="20" value="5"></label>
+    <label>Máx. por intento (s)<input name="tiempo" type="number" min="2" max="30" step="0.5" value="8"></label>
+    <button id="btnProtocolo" class="boton principal" type="submit">Iniciar protocolo</button>
+    <button id="btnDetenerProtocolo" class="boton" type="button" disabled>Detener</button>
+  </form>
+  <div id="pedido" class="pedido"></div>
+  <div id="progreso" class="progreso"></div>
+  <div id="avisoProtocolo" class="nota"></div>
+  <table id="tablaUltimos" hidden>
+    <thead><tr><th>Pedida</th><th>Intento</th><th>Resultado</th><th>Reconocida</th><th>Tiempo (s)</th><th>Con mano</th><th>Lo que más pasó</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="final" hidden>
+    <p id="finalResumen"></p>
+    <table id="tablaFinal">
+      <thead><tr><th>Letra</th><th>Aciertos</th><th>Confusiones</th><th>No detectadas</th><th>Tiempo medio (s)</th><th>Causa probable</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const TOKEN = document.querySelector('meta[name="pgc-admin"]').content;
+  const cab = { "X-PGC-Admin": TOKEN };
+  if (!TOKEN) { $("#principal").hidden = true; $("#protocolo").hidden = true; $("#sinToken").hidden = false; return; }
+
+  // ---------- tema
+  const raiz = document.documentElement;
+  $("#btnTema").addEventListener("click", () => {
+    const oscuro = (raiz.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+    raiz.dataset.theme = oscuro ? "light" : "dark";
+    try { localStorage.setItem("tema", raiz.dataset.theme); } catch (e) {}
+  });
+
+  const post = (ruta, cuerpo) => fetch(ruta, { method: "POST", headers: { ...cab, "Content-Type": "application/json" },
+    body: JSON.stringify(cuerpo || {}) });
+  document.querySelectorAll("[data-kin]").forEach((b) =>
+    b.addEventListener("click", () => post("/api/kinect/control", { accion: b.dataset.kin })));
+
+  // ---------- en vivo
+  function clasificar(motivo) {
+    if (!motivo) return "";
+    if (motivo.startsWith("Letra confirmada") || motivo.startsWith("Confirmando")) return "ok";
+    if (motivo.startsWith("Mano no detectada") || motivo.startsWith("Más de una") || motivo.startsWith("Puntos")
+        || motivo.includes("sin letra")) return "error";
+    return "aviso";
+  }
+  function pintar(d) {
+    const manos = d.manos;
+    $("#mano").textContent = "";
+    const p = document.createElement("span");
+    p.className = "punto " + (manos === 1 ? "ok" : manos ? "aviso" : "error");
+    $("#mano").append(p, manos === 1 ? "1 mano" : manos ? manos + " manos (debe ser una)" : "No detectada");
+    const letra = d.prediccion;
+    $("#letra").className = "glifo" + (letra && letra !== "sin_letra" ? "" : " sin");
+    $("#letra").textContent = letra ? (letra === "sin_letra" ? "sin letra" : letra) : "—";
+    $("#segunda").textContent = d.segunda ? (d.segunda === "sin_letra" ? "sin letra" : d.segunda.toUpperCase()) : "—";
+    $("#margen").textContent = d.margen == null ? "—" : d.margen.toFixed(2);
+    $("#margenBarra").style.width = d.margen == null ? "0" : Math.min(100, d.margen * 50) + "%";
+    const tc = d.tiempo_confirmacion || 0.7;
+    $("#estable").textContent = (d.estable_s || 0).toFixed(1) + " de " + tc + " s";
+    $("#estableBarra").style.width = Math.min(100, 100 * (d.estable_s || 0) / tc) + "%";
+    $("#estableCaja").className = "barra" + ((d.estable_s || 0) >= tc ? "" : " aviso");
+    $("#imagenes").textContent = (d.confirmaciones || 0) + " de " + (d.confirmaciones_necesarias || 4);
+    $("#armado").textContent = d.armado ? "Sí" : "No: retira la mano " + (d.tiempo_liberacion || 0.5) + " s";
+    $("#activo").textContent = d.activo ? "Iniciado" : "Detenido";
+    $("#motivo").className = "motivo " + clasificar(d.motivo);
+    $("#motivo").textContent = d.motivo || "—";
+    $("#texto").textContent = d.texto || "";
+    $("#estadoDetector").textContent = "Estado del detector: " + (d.estado || "—") +
+      (d.edad_ms != null ? " · última imagen hace " + d.edad_ms + " ms" : "");
+  }
+  async function bucleDiagnostico() {
+    for (;;) {
+      try {
+        const r = await fetch("/api/kinect/diagnostico", { headers: cab, cache: "no-store" });
+        if (r.ok) pintar(await r.json());
+        else {
+          const e = await r.json().catch(() => ({}));
+          $("#motivo").className = "motivo error";
+          $("#motivo").textContent = e.detail || "Sin diagnóstico";
+        }
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, 100));
+    }
+  }
+
+  // ---------- cámara (la siguiente imagen apenas existe)
+  let cuadro = null, urlCam = null;
+  async function bucleCamara() {
+    for (;;) {
+      let pausa = 300;
+      try {
+        const r = await fetch("/api/kinect/imagen" + (cuadro === null ? "" : "?despues=" + cuadro), { headers: cab, cache: "no-store" });
+        if (r.ok) {
+          pausa = r.headers.has("X-Kinect-Cuadro") ? 0 : 200;
+          const nuevo = r.headers.get("X-Kinect-Cuadro");
+          if (nuevo !== cuadro) {
+            cuadro = nuevo;
+            const url = URL.createObjectURL(await r.blob());
+            $("#cam").src = url;
+            if (urlCam) URL.revokeObjectURL(urlCam);
+            urlCam = url;
+          }
+        }
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, pausa));
+    }
+  }
+
+  // ---------- protocolo
+  const RESULTADOS = { acierto: "Acierto", confusion: "Confundida", no_detectada: "No detectada" };
+  const resultadoDe = (it) => it.reconocida == null ? "no_detectada" : it.reconocida === it.letra ? "acierto" : "confusion";
+  function celda(fila, texto, clase) { const td = document.createElement("td"); td.textContent = texto; if (clase) td.className = clase; fila.appendChild(td); }
+  function pintarProtocolo(e) {
+    const corriendo = e.fase === "pedir" || e.fase === "retirar";
+    $("#btnProtocolo").disabled = corriendo;
+    $("#btnDetenerProtocolo").disabled = !corriendo;
+    $("#pedido").className = "pedido" + (e.fase === "retirar" ? " retirar" : "");
+    $("#pedido").textContent = e.fase === "pedir" ? "Haz la letra " + e.letra.toUpperCase() + " · intento " + e.intento + " de " + e.repeticiones
+      : e.fase === "retirar" ? "Retira la mano" : e.fase === "terminado" ? "Protocolo terminado" : e.fase === "detenido" ? "Protocolo detenido" : "";
+    $("#progreso").textContent = e.total ? e.hecho + " de " + e.total + " intentos" : "";
+    $("#avisoProtocolo").textContent = e.error ? "Error: " + e.error : e.carpeta ? "Resultados guardados en " + e.carpeta : "";
+    const ult = e.ultimos || [];
+    $("#tablaUltimos").hidden = !ult.length;
+    const cuerpo = $("#tablaUltimos tbody");
+    cuerpo.textContent = "";
+    ult.forEach((it) => {
+      const fila = document.createElement("tr");
+      const r = resultadoDe(it);
+      celda(fila, it.letra.toUpperCase()); celda(fila, it.intento); celda(fila, RESULTADOS[r], r);
+      celda(fila, it.reconocida ? it.reconocida.toUpperCase() : "—"); celda(fila, it.tiempo_s != null ? it.tiempo_s : "—");
+      celda(fila, it.mano_pct + " %"); celda(fila, it.motivo_frecuente || "—");
+      cuerpo.appendChild(fila);
+    });
+    const inf = e.informe;
+    $("#final").hidden = !inf;
+    if (inf) {
+      $("#finalResumen").textContent = "Exactitud: " + inf.exactitud_pct + " % (" + inf.aciertos + " de " + inf.intentos + ")" +
+        (inf.tiempo_medio_s ? " · tiempo medio hasta confirmar: " + inf.tiempo_medio_s + " s" : "") +
+        (inf.fallan.length ? " · fallan: " + inf.fallan.map((l) => l.toUpperCase()).join(", ") : "");
+      const tf = $("#tablaFinal tbody");
+      tf.textContent = "";
+      inf.por_letra.forEach((f) => {
+        const fila = document.createElement("tr");
+        celda(fila, f.letra.toUpperCase()); celda(fila, f.aciertos + "/" + f.intentos);
+        celda(fila, Object.entries(f.confusiones).map(([k, v]) => k.toUpperCase() + "×" + v).join(", ") || "—");
+        celda(fila, f.no_detectadas); celda(fila, f.tiempo_medio_s != null ? f.tiempo_medio_s : "—");
+        celda(fila, (inf.causas[f.letra] || {}).texto || "—");
+        tf.appendChild(fila);
+      });
+    }
+  }
+  async function bucleProtocolo() {
+    for (;;) {
+      try {
+        const r = await fetch("/api/kinect/protocolo", { headers: cab, cache: "no-store" });
+        if (r.ok) pintarProtocolo(await r.json());
+      } catch (e) {}
+      await new Promise((listo) => setTimeout(listo, 300));
+    }
+  }
+  $("#formProtocolo").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget;
+    const r = await post("/api/kinect/protocolo/iniciar", {
+      letras: f.letras.value.trim().toLowerCase() || null,
+      repeticiones: Number(f.repeticiones.value), tiempo_max: Number(f.tiempo.value) });
+    if (!r.ok) $("#avisoProtocolo").textContent = "No se pudo iniciar: " + ((await r.json().catch(() => ({}))).detail || r.status);
+  });
+  $("#btnDetenerProtocolo").addEventListener("click", () => post("/api/kinect/protocolo/detener"));
+
+  bucleDiagnostico();
+  bucleCamara();
+  bucleProtocolo();
+})();
+</script>
+</body>
+</html>
+```
+
 ## `web/movil.html`
 
 ```html
@@ -3722,7 +6072,7 @@ def log(msg):
   .panel.suave { background: var(--superficie); border-radius: 20px; padding: 18px; }
   h2 { margin: 0 0 12px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
   .panel.suave h2 { font-size: 16px; color: var(--texto-2); margin-bottom: 10px; }
-  .oculto { display: none !important; }
+  .oculto, [hidden] { display: none !important; }   /* [hidden] también: .btn { display: flex } no debe ganarle */
 
   /* escribir */
   textarea { display: block; width: 100%; min-height: 96px; resize: none; padding: 14px 16px; border: 0;
@@ -3790,6 +6140,32 @@ def log(msg):
   @keyframes pulso { from { transform: scale(1); opacity: .5; } to { transform: scale(1.18); opacity: 0; } }
   input[type=file] { margin-top: 12px; max-width: 100%; font: inherit; font-size: 15px; }
 
+  /* kinect (diseño de Camila con la paleta de la plataforma) */
+  textarea.kin-texto { margin-top: 14px; min-height: 0; font-size: 26px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; cursor: default; }
+  textarea.kin-texto::placeholder { font-size: 19px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  textarea.kin-texto:focus { box-shadow: inset 0 0 0 1px var(--linea); }
+  textarea.kin-texto.vivo { box-shadow: inset 0 0 0 2px var(--acento); }
+  .kin-detalle { min-height: 1.45em; }
+  .kin-acceso { margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: var(--superficie); }
+  .kin-modo { margin-top: 0; font-weight: 600; color: var(--texto); }
+  .kin-acceso label { display: block; margin-top: 12px; font-size: 15px; font-weight: 600; color: var(--texto-2); }
+  .kin-acceso input { display: block; width: 100%; margin-top: 6px; padding: 12px 16px; border: 0; border-radius: 14px;
+    background: var(--fondo); color: var(--texto); font: inherit; font-size: 22px; letter-spacing: .3em;
+    font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--linea); }
+  .kin-acceso input::placeholder { font-size: 16px; letter-spacing: 0; color: var(--texto-3); }
+  .kin-acceso input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--acento); }
+  .kin-acceso .btn { margin-top: 12px; min-height: 52px; }
+  .kin-acceso .aviso.mostrar { margin-top: 12px; }
+  .kin-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .kin-botones .btn { margin-top: 0; min-height: 52px; font-size: 17px; }
+  .kin-botones .ancho { grid-column: 1 / -1; }
+  .kin-botones .destacado { min-height: 58px; font-size: 18px; }
+  .btn.sec2 { background: var(--superficie); color: var(--texto); box-shadow: inset 0 0 0 1px var(--linea); }
+  .btn.sec2:active:not(:disabled) { background: var(--linea); }
+  .btn.eco { background: var(--acento-suave); color: var(--acento); box-shadow: inset 0 0 0 1.5px var(--acento); }
+  .btn.eco.encendido { background: var(--acento-boton); color: var(--sobre-acento); box-shadow: none; }
+
   /* tus mensajes */
   .mensaje { display: grid; grid-template-columns: minmax(52px, auto) 1fr; gap: 14px; align-items: center;
     padding: 12px 0; border-top: 1px solid var(--linea); }
@@ -3804,6 +6180,7 @@ def log(msg):
   .mensaje .e { font-size: 15px; color: var(--texto-2); }
   .mensaje .e.vivo { color: var(--acento); font-weight: 600; }
   .mensaje .t { margin-top: 2px; font-size: 17px; font-weight: 600; word-break: break-word; }
+  .mensaje .quien-msg { color: var(--texto-2); font-weight: 500; }
   .mensaje .acciones { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .enlace { min-height: 40px; padding: 0 4px; border: 0; background: none; color: var(--error); font-size: 15px; font-weight: 500; }
 
@@ -3904,10 +6281,46 @@ def log(msg):
 </section>
 
 <!-- ======================= KINECT ========================= -->
+<!-- Diseño de Camila (pestaña de iniciar_pgc_integrado.py): texto grande, estado, código del PC y botones en cuadrícula -->
 <section id="tab-kinect" class="panel oculto">
-  <h2>Señas frente al Kinect</h2>
-  <p class="nota">Párate frente al Kinect y haz el alfabeto manual de la LSC: el sistema lo reconocerá con modelos de IA entrenados para este proyecto y lo dirá en voz alta.</p>
-  <div class="aviso info mostrar">Este modo se habilitará en la siguiente fase del proyecto.</div>
+  <h2>De tus manos al texto</h2>
+  <div id="kinEstado" class="estado"><span class="punto"></span><span class="txt">Conectando con el Kinect…</span></div>
+  <p class="nota">Mantén la letra hasta verla escrita. Retira la mano entre letras.</p>
+
+  <textarea id="kinTexto" class="kin-texto" rows="3" readonly aria-label="Texto deletreado"
+            placeholder="Tus letras aparecerán aquí"></textarea>
+  <p id="kinDetalle" class="nota kin-detalle" role="status">Conectando...</p>
+  <p id="kinFrase" class="nota"></p>
+
+  <!-- Acceso: un jurado a la vez (turno), con el código que muestra el proyector -->
+  <div id="kinAcceso" class="kin-acceso">
+    <p id="kinModo" class="nota kin-modo" role="status">Modo espectador.</p>
+    <form id="kinLibre" class="oculto" novalidate>
+      <label id="kinCodigoEtq" for="kinCodigo">Código del PC</label>
+      <input id="kinCodigo" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+             autocomplete="off" enterkeyhint="go" placeholder="6 dígitos del proyector">
+      <button id="kinTomar" class="btn" type="submit">Activar control</button>
+      <div id="avisoAcceso" class="aviso"></div>
+    </form>
+    <div id="kinOcupado" class="aviso info"></div>
+    <button id="kinSoltar" class="btn sec2 oculto" type="button">Volver a espectador</button>
+  </div>
+
+  <!-- Botones en cuadrícula. Los del deletreo necesitan el turno; Guardar, Leer y Detener voz, no -->
+  <div id="kinMios" class="kin-botones">
+    <button class="btn" type="button" data-kin="iniciar">Iniciar</button>
+    <button class="btn sec2" type="button" data-kin="detener">Detener</button>
+    <button class="btn sec2" type="button" data-kin="espacio">Espacio</button>
+    <button class="btn sec2" type="button" data-kin="borrar">Borrar</button>
+    <button class="btn sec2" type="button" data-kin="limpiar">Limpiar</button>
+    <button id="kinGuardar" class="btn sec2" type="button">Guardar TXT</button>
+    <button id="kinLeer" class="btn sec2" type="button">Leer frase</button>
+    <button id="kinCallar" class="btn sec2" type="button">Detener voz</button>
+    <button class="btn ancho destacado" type="button" data-kin="terminar">Terminar y decirlo</button>
+    <button id="kinEco" class="btn ancho eco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
+  </div>
+  <p id="kinVoz" class="nota" role="status"></p>
+  <div id="avisoKinect" class="aviso"></div>
 </section>
 
 <!-- ===================== MIS MENSAJES ===================== -->
@@ -4057,7 +6470,7 @@ def log(msg):
         body: JSON.stringify({ texto: v, cliente }) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || "No se pudo enviar.");
-      mios.push({ id: d.id, texto: d.texto, sesion: d.sesion });
+      mios.push({ id: d.id, texto: d.texto, nombre: d.nombre, sesion: d.sesion });
       guardarMios();
       texto.value = "";
       texto.dispatchEvent(new Event("input"));
@@ -4152,6 +6565,158 @@ def log(msg):
     else $("#vozEstado").textContent = "Habla claro, máximo " + SEGUNDOS + " segundos. Luego podrás revisar el texto.";
   }
 
+  // ---------- Kinect: todo llega por el WebSocket (sin consultas propias); los botones necesitan el turno
+  const hayKinect = !!$("#kinTexto");          // el lanzador antiguo (iniciar_pgc_integrado.py) reemplaza esta sección
+  let kinOcupado = false, ultimaFrase = null, tAvisoKinect = null;
+
+  function textoEstadoKinect(k) {
+    if (!k.controles && k.estado !== "error") return ["", "Kinect simulado"];
+    if (k.estado === "apagado" || k.estado === "cargando") return ["aviso", "Conectando con el Kinect…"];
+    if (!k.conectado || !k.camara || k.estado === "error") return ["error", "Kinect no conectado"];
+    if (k.activo) return ["ok", "Reconociendo señas"];
+    return ["", "Kinect listo · deletreo detenido"];
+  }
+
+  function pintarKinect() {
+    if (!hayKinect || !estado || !estado.kinect) return;
+    const k = estado.kinect;
+    const [clase, txt] = textoEstadoKinect(k);
+    const chipK = $("#kinEstado");
+    chipK.className = "estado " + clase;
+    chipK.querySelector(".txt").textContent = txt;
+    $("#kinTexto").value = (k.texto || "").toUpperCase();
+    $("#kinTexto").classList.toggle("vivo", !!k.activo);
+    // El estado del detector tal cual ("Deletreo detenido.", "Posible letra: A | Estable: 0.4 s"...)
+    $("#kinDetalle").textContent = txt === "Kinect no conectado"
+      ? "El presentador debe encender el Kinect y su detector."
+      : k.conectado ? (k.detalle || (k.activo ? "" : "Deletreo detenido.")) : "Conectando...";
+    const frase = (k.frases || []).slice(-1)[0];
+    $("#kinFrase").textContent = frase ? "Última frase: «" + frase + "»" : "";
+    if (frase && frase !== ultimaFrase && ultimaFrase !== null) {
+      const dicha = estado.voz_salida && estado.voz_salida.estado === "listo";
+      aviso($("#avisoKinect"), "ok", (dicha ? "Se dijo en voz alta: «" : "Frase terminada: «") + frase + "»");
+      clearTimeout(tAvisoKinect);
+      tAvisoKinect = setTimeout(() => aviso($("#avisoKinect"), "", ""), 6000);
+    }
+    ultimaFrase = frase || "";
+
+    // Sin Kinect conectado no hay nada que controlar: los botones del deletreo quedan apagados
+    const conControles = k.controles && !bloqueado && k.conectado && k.camara;
+    const mio = !!(k.turno && miPid && k.turno.pid === miPid);
+    const libre = conControles && !k.turno;
+    $("#kinLibre").classList.toggle("oculto", !libre);
+    $("#kinCodigoEtq").classList.toggle("oculto", !k.codigo);       // PGC_KINECT_CODIGO=false: basta el botón
+    $("#kinCodigo").classList.toggle("oculto", !k.codigo);
+    if (!libre) aviso($("#avisoAcceso"), "", "");
+    $("#kinSoltar").classList.toggle("oculto", !conControles || !mio);
+    const otro = conControles && k.turno && !mio;
+    $("#kinOcupado").className = "aviso info" + (otro ? " mostrar" : "");
+    $("#kinOcupado").textContent = otro ? "Lo está usando " + (k.turno.nombre || "otra persona") + ". Espera tu turno." : "";
+    $("#kinModo").textContent = mio && conControles
+      ? "Control del teléfono activo (se libera solo tras 2 minutos sin usarlo)."
+      : libre && k.codigo ? "Modo espectador. Introduce el código del PC para controlar."
+      : libre ? "Modo espectador. Toca «Activar control» para controlar." : "Modo espectador.";
+    actualizarPropios();
+    const puede = mio && conControles && !kinOcupado;
+    document.querySelectorAll("[data-kin]").forEach((b) => {
+      const accion = b.dataset.kin;
+      b.disabled = !puede || (accion === "iniciar" && k.activo) || (accion === "detener" && !k.activo);
+    });
+    $("#kinTomar").disabled = kinOcupado;
+    $("#kinEco").textContent = "Eco: " + (k.eco ? "sí" : "no");
+    $("#kinEco").classList.toggle("encendido", !!k.eco);
+    $("#kinEco").disabled = !puede;
+  }
+
+  async function pedirKinect(ruta, cuerpo, donde = $("#avisoKinect")) {
+    kinOcupado = true;
+    pintarKinect();
+    try {
+      const r = await fetch(ruta, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cliente, ...cuerpo }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || "No se pudo completar.");
+      aviso(donde, "", "");
+      return true;
+    } catch (e) {
+      aviso(donde, "error", e.message || "Sin conexión con el servidor.");
+      return false;
+    } finally {
+      kinOcupado = false;
+      pintarKinect();
+    }
+  }
+  // ---------- En tu celular (también los espectadores): guardar y leer el texto deletreado
+  // Es el texto en curso o, si ya se terminó, la última frase
+  const textoKinect = () => {
+    const k = (estado && estado.kinect) || {};
+    return (k.texto || (k.frases || []).slice(-1)[0] || "").trim();
+  };
+  const tieneVoz = "speechSynthesis" in window;
+  if (tieneVoz) speechSynthesis.getVoices();          // algunos navegadores cargan las voces tarde
+  function actualizarPropios() {
+    const t = textoKinect();
+    $("#kinGuardar").disabled = !t;
+    $("#kinLeer").disabled = !tieneVoz || !t;
+    $("#kinCallar").disabled = !tieneVoz;
+  }
+  function guardarTxt() {
+    const t = textoKinect();
+    if (!t) return;
+    const url = URL.createObjectURL(new Blob([t.toUpperCase() + "\r\n"], { type: "text/plain;charset=utf-8" }));
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = "texto_lsc.txt";
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function leerFrase() {
+    const t = textoKinect();
+    if (!tieneVoz || !t) return;
+    // Primero una voz de Colombia; si no hay, de Latinoamérica; si no, cualquiera en español
+    const espanolas = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("es"));
+    const preferida = (prefijos) => espanolas.find((v) => prefijos.some((p) => v.lang.toLowerCase().replace("_", "-") === p));
+    const voz = preferida(["es-co"]) || preferida(["es-419", "es-mx", "es-us", "es-pe", "es-ec", "es-ve", "es-cl", "es-ar"])
+      || espanolas[0];
+    if (!voz) {
+      $("#kinVoz").textContent = "No hay una voz en español disponible. Revisa las voces del celular o vuelve a intentarlo cuando carguen.";
+      return;
+    }
+    speechSynthesis.cancel();
+    const lectura = new SpeechSynthesisUtterance(t.toLowerCase());
+    lectura.voice = voz;
+    lectura.lang = voz.lang;
+    lectura.onstart = () => { $("#kinVoz").textContent = "Leyendo..."; };
+    lectura.onend = () => { $("#kinVoz").textContent = "Lectura terminada."; };
+    lectura.onerror = () => { $("#kinVoz").textContent = "Lectura detenida o audio no disponible."; };
+    speechSynthesis.speak(lectura);
+  }
+  function detenerVoz() {
+    if (tieneVoz) speechSynthesis.cancel();
+    $("#kinVoz").textContent = "Lectura detenida.";
+  }
+
+  if (hayKinect) {
+    $("#kinGuardar").addEventListener("click", guardarTxt);
+    $("#kinLeer").addEventListener("click", leerFrase);
+    $("#kinCallar").addEventListener("click", detenerVoz);
+    addEventListener("pagehide", () => { if (tieneVoz) speechSynthesis.cancel(); });
+    // Activar control: con el código que muestra el proyector (si PGC_KINECT_CODIGO=true)
+    $("#kinLibre").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const campo = $("#kinCodigo");
+      if (await pedirKinect("/api/kinect/turno", { codigo: campo.value.trim() }, $("#avisoAcceso"))) campo.value = "";
+    });
+    $("#kinSoltar").addEventListener("click", () => pedirKinect("/api/kinect/turno/soltar", {}));
+    // Modo eco: la mano repite lo que reconoce el Kinect (con el turno, igual que en el proyector)
+    $("#kinEco").addEventListener("click", () =>
+      pedirKinect("/api/kinect/eco", { activo: !(estado && estado.kinect && estado.kinect.eco) }));
+    document.querySelectorAll("[data-kin]").forEach((b) =>
+      b.addEventListener("click", () => pedirKinect("/api/kinect/control", { accion: b.dataset.kin })));
+  }
+
   // ---------- mis mensajes
   async function cancelar(id) {
     try {
@@ -4187,11 +6752,16 @@ def log(msg):
       fila.className = "acciones";
       const e = document.createElement("div");
       e.className = "e";
-      const t = document.createElement("div");
-      t.className = "t"; t.textContent = m.texto;
       fila.appendChild(e);
       const enCola = cola.findIndex((c) => c.id === m.id);
       const hist = historial.find((h) => h.id === m.id);
+      // El nombre con el que el servidor guardó el mensaje (el mismo que ve el proyector)
+      const delServidor = (actual && actual.id === m.id) ? actual : enCola >= 0 ? cola[enCola] : hist;
+      const t = document.createElement("div");
+      t.className = "t";
+      const n = document.createElement("span");    // "Jean: hola jurado"
+      n.className = "quien-msg"; n.textContent = (m.nombre || (delServidor && delServidor.nombre) || "Anónimo") + ": ";
+      t.append(n, m.texto);
       if ((actual && actual.id === m.id && actual.saltado) || (hist && hist.saltado)) {
         pos.classList.add("apagado"); pos.textContent = "–";
         e.textContent = "El presentador lo saltó";
@@ -4231,6 +6801,7 @@ def log(msg):
     $("#enCola").textContent = n ? n + (n === 1 ? " mensaje en cola" : " mensajes en cola") : "";
     pintarMios();
     actualizarVoz();
+    pintarKinect();
   }
 
   // ---------- participante: nombre opcional y pausa del presentador
@@ -4408,6 +6979,14 @@ def log(msg):
   .invita { font-size: clamp(18px, 3vh, 34px); font-weight: 600; line-height: 1.2; letter-spacing: -.01em;
     margin: 2.6vh 0 .8vh; max-width: 13em; text-wrap: balance; }
   .url { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); overflow-wrap: anywhere; }
+  /* código para tomar el turno del Kinect desde un celular (solo lo ve quien está en la sala) */
+  .codigo-kinect { display: flex; align-items: baseline; justify-content: space-between; gap: .8vw; margin-top: 1.6vh;
+    padding: .9vh 1vw; border-radius: 1.4vh; background: var(--acento-suave); box-shadow: inset 0 0 0 1px var(--linea); }
+  .codigo-kinect span { font-size: clamp(12px, 1.6vh, 18px); color: var(--texto-2); }
+  .codigo-kinect b { font-size: clamp(22px, 3.6vh, 44px); font-weight: 700; line-height: 1.1; letter-spacing: .06em;
+    color: var(--acento); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .izq.con-codigo .qr { max-width: 26vh; }
+  .izq.con-codigo .estados { padding-top: 2vh; }
   .estados { margin: auto 0 0; padding-top: 3vh; display: grid; grid-template-columns: auto 1fr;
     gap: 1.2vh 1.4vw; font-size: clamp(13px, 1.9vh, 21px); }
   .estados dt { color: var(--texto-2); display: flex; align-items: center; gap: .6em; }
@@ -4486,6 +7065,7 @@ def log(msg):
   .recientes { margin-top: auto; padding-top: 3vh; }
   .der ul { gap: 1.1vh; }
   .der ul li { font-size: clamp(14px, 2.05vh, 23px); line-height: 1.3; color: var(--texto-2); word-break: break-word; }
+  .quien-hist { color: var(--texto); font-weight: 600; }
   .etiqueta { margin-left: .45em; font-size: .8em; color: var(--texto-3); }
 
   /* ---------- pie ---------- */
@@ -4501,6 +7081,33 @@ def log(msg):
   .controles { align-items: center; }
   .aviso-admin { font-size: clamp(12px, 1.6vh, 17px); color: var(--texto-2); margin-right: .4vw; }
   .aviso-admin button { border: 0; padding: 0 .2em; color: var(--acento); font-weight: 600; text-decoration: underline; }
+
+  [hidden] { display: none !important; }
+
+  /* kinect: lo que se deletrea con señas */
+  #vKinect { align-self: stretch; justify-content: center; gap: 1.4vh; }
+  /* Con la cámara a la vista, la imagen manda: ocupa casi todo el centro y el texto se achica */
+  #vKinect.con-camara { gap: 1vh; }
+  #vKinect.con-camara .kin-camara { height: 58vh; }
+  #vKinect.con-camara .kin-texto { font-size: clamp(26px, 6.5vh, 80px); }
+  #vKinect.con-camara .kin-detalle { font-size: clamp(14px, 2.1vh, 24px); }
+  .kin-camara { height: 34vh; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 1.6vh;
+    background: var(--superficie); }
+  .kin-texto { max-width: 100%; min-height: 1.1em; font-size: clamp(30px, 9vh, 110px); font-weight: 600; line-height: 1.1;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--texto); overflow-wrap: anywhere; }
+  .kin-texto:empty::before { content: "Haz una letra frente al Kinect"; font-size: .42em; font-weight: 500;
+    letter-spacing: 0; text-transform: none; color: var(--texto-3); }
+  .kin-texto.vivo:not(:empty)::after { content: ""; display: inline-block; width: .06em; height: .9em; margin-left: .08em;
+    vertical-align: -.08em; border-radius: 2px; background: var(--acento); animation: parpadeo 1s steps(2) infinite; }
+  @keyframes parpadeo { 50% { opacity: 0; } }
+  .kin-detalle { min-height: 1.3em; font-size: clamp(15px, 2.4vh, 28px); color: var(--texto-2); }
+  .kin-frase { min-height: 1.3em; font-size: clamp(14px, 2.2vh, 26px); color: var(--texto-2); }
+  .kin-frase b { color: var(--texto); font-weight: 600; }
+  .kin-tira { margin-top: 1.6vh; min-height: 1.3em; font-size: clamp(14px, 2.2vh, 26px); color: var(--texto-2); }
+  .kin-tira b { color: var(--texto); font-weight: 600; letter-spacing: .04em; }
+  .grupos { display: flex; flex-direction: column; align-items: flex-end; gap: .9vh; flex: none; }
+  .controles .etq { font-size: clamp(12px, 1.6vh, 17px); color: var(--texto-3); margin-right: .2vw; }
+  .controles button.encendido { color: var(--acento); border-color: var(--acento); font-weight: 600; }
 
   .desconectado { position: fixed; top: 0; left: 0; right: 0; z-index: 5; padding: .9vh; text-align: center;
     background: var(--error); color: var(--sobre-error); font-weight: 600; font-size: clamp(13px, 1.8vh, 20px);
@@ -4532,6 +7139,10 @@ def log(msg):
     <div class="qr"><img id="qr" alt="Código QR para abrir la página en el celular"></div>
     <div class="invita">Escanea y escribe o habla a la mano</div>
     <div id="url" class="url"></div>
+    <div id="kinCodigoCaja" class="codigo-kinect" hidden>
+      <span>Código del Kinect</span>
+      <b id="kinCodigo">——————</b>
+    </div>
     <dl class="estados">
       <dt><span id="pMano" class="punto"></span>Mano</dt><dd id="eMano">—</dd>
       <dt><span id="pVoz" class="punto"></span>Voz</dt><dd id="eVoz">—</dd>
@@ -4553,6 +7164,14 @@ def log(msg):
       <div id="detalle" class="detalle"></div>
       <div id="palabra" class="palabra"><div id="marca" class="marca"></div></div>
       <div id="notaNd" class="nota-nd"></div>
+      <div id="kinTira" class="kin-tira"></div>
+    </div>
+    <div id="vKinect" class="vista oculta">
+      <div id="kinRotulo" class="rotulo">Kinect</div>
+      <img id="kinCamara" class="kin-camara" alt="Cámara del Kinect con los puntos de la mano" hidden>
+      <div id="kinTexto" class="kin-texto"></div>
+      <div id="kinDetalle" class="kin-detalle"></div>
+      <div id="kinFrase" class="kin-frase"></div>
     </div>
   </section>
 
@@ -4574,11 +7193,26 @@ def log(msg):
     Jean Paul Miranda Díaz, Lina Tatiana Maldonado Rivera, Paula Camila Enríquez Galindo, Jean Harry Raigozo<br>
     Ingeniería de Sistemas y Computación, Universidad de Cundinamarca, extensión Facatativá
   </p>
+  <div id="grupos" class="grupos">
+  <div id="ctrlKinect" class="controles" hidden>
+    <span class="etq">Kinect</span>
+    <button type="button" data-kin="iniciar">Iniciar</button>
+    <button type="button" data-kin="detener">Detener</button>
+    <button type="button" data-kin="espacio">Espacio</button>
+    <button type="button" data-kin="borrar">Borrar</button>
+    <button type="button" data-kin="limpiar">Limpiar</button>
+    <button type="button" data-kin="terminar" title="Dice la frase en voz alta (y, con el eco, la mano la deletrea)">Terminar y decir</button>
+    <button id="kinEco" type="button" title="La mano repite lo que reconoce el Kinect">Eco: no</button>
+    <button id="kinLiberar" type="button" title="Quita el control del Kinect al celular que lo tiene" disabled>Liberar turno</button>
+    <button id="kinNuevoCodigo" type="button" title="Código nuevo para tomar el turno; quien lo tenía lo pierde" hidden>Cambiar código</button>
+    <button id="kinDiagnostico" type="button" title="Por qué una letra se confirma o no, y el protocolo de prueba (solo en este PC)">Diagnóstico</button>
+  </div>
   <div class="controles">
     <span id="avisoAdmin" class="aviso-admin" role="status"></span>
     <button id="btnBloquear" type="button" title="Pausa a esta persona durante la sesión y cancela sus mensajes en espera" disabled>Bloquear participante</button>
     <button id="btnSaltar" type="button" title="Cancela el mensaje en curso y deja la mano abierta" disabled>Saltar mensaje</button>
     <button id="btnReconectar" type="button" title="Volver a buscar la mano por USB">Reconectar mano</button>
+  </div>
   </div>
 </footer>
 
@@ -4765,10 +7399,126 @@ def log(msg):
     pintarPalabra(a);
   }
 
-  function mostrarVista(deletreando) {
-    $("#vDeletreo").classList.toggle("oculta", !deletreando);
-    $("#vReposo").classList.toggle("oculta", deletreando);
+  function mostrarVista(vista) {            // "deletreo" (la mano) | "kinect" | "reposo"
+    $("#vDeletreo").classList.toggle("oculta", vista !== "deletreo");
+    $("#vKinect").classList.toggle("oculta", vista !== "kinect");
+    $("#vReposo").classList.toggle("oculta", vista !== "reposo");
   }
+
+  // ---------- Kinect: estado, texto deletreado y (solo en este PC) la cámara
+  function estadoKinect(k) {
+    if (!k.controles && k.estado !== "error") return ["pendiente", "Simulado"];
+    if (k.estado === "apagado" || k.estado === "cargando") return ["aviso", "Conectando…"];
+    if (!k.conectado || !k.camara || k.estado === "error") return ["error", "No conectado"];
+    if (k.activo) return ["ok", "Reconociendo"];
+    return ["ok", "Listo"];
+  }
+  let verCamara = false, urlCamara = null;
+  function pintarKinect(k, mano) {
+    const [clase, txt] = estadoKinect(k);
+    estadoFila("Kinect", clase, txt + (k.turno ? " · " + (k.turno.nombre || "un jurado") : ""));
+    $("#kinRotulo").textContent = k.turno && k.turno.nombre ? "Kinect · " + k.turno.nombre : "Kinect";
+    // Con la cámara a la vista, texto y estado los pone la imagen (son del mismo momento); si no, el WebSocket
+    if (!camaraAlDia()) {
+      $("#kinTexto").textContent = k.texto || "";
+      $("#kinDetalle").textContent = k.activo ? k.detalle : "Deletreo detenido";
+    }
+    $("#kinTexto").classList.toggle("vivo", !!k.activo);
+    const frase = (k.frases || []).slice(-1)[0];
+    $("#kinFrase").textContent = "";
+    if (frase) { const b = document.createElement("b"); b.textContent = frase; $("#kinFrase").append("Dijo: «", b, "»"); }
+    // Mientras la mano deletrea, lo del Kinect sigue visible en una línea
+    $("#kinTira").textContent = "";
+    if (mano && k.activo) { const b = document.createElement("b"); b.textContent = (k.texto || "…").toUpperCase(); $("#kinTira").append("Kinect: ", b); }
+    verCamara = !!(TOKEN && k.camara);
+    if (!verCamara) { $("#kinCamara").hidden = true; $("#vKinect").classList.remove("con-camara"); }
+    // Controles del presentador
+    $("#ctrlKinect").hidden = !TOKEN || !k.controles;
+    document.querySelectorAll("#ctrlKinect [data-kin]").forEach((b) => {
+      b.disabled = (b.dataset.kin === "iniciar" && k.activo) || (b.dataset.kin === "detener" && !k.activo);
+    });
+    $("#kinEco").textContent = "Eco: " + (k.eco ? "sí" : "no");
+    $("#kinEco").classList.toggle("encendido", !!k.eco);
+    $("#kinLiberar").disabled = !k.turno;
+    // Código del turno: lo pide solo este PC (con el token); el WebSocket solo dice si cambió
+    const conCodigo = !!(TOKEN && k.controles && k.codigo);
+    $("#kinCodigoCaja").hidden = !conCodigo;
+    document.querySelector(".izq").classList.toggle("con-codigo", conCodigo);
+    $("#kinNuevoCodigo").hidden = !conCodigo;
+    if (conCodigo && k.codigo_version !== versionCodigo) pedirCodigo(k.codigo_version);
+  }
+  let versionCodigo = null;
+  const ponerCodigo = (c) => { $("#kinCodigo").textContent = c ? c.slice(0, 3) + " " + c.slice(3) : "——————"; };
+  async function pedirCodigo(version) {
+    versionCodigo = version;
+    try {
+      const r = await fetch("/api/kinect/codigo", { headers: { "X-PGC-Admin": TOKEN }, cache: "no-store" });
+      if (r.ok) ponerCodigo((await r.json()).codigo);
+      else versionCodigo = null;
+    } catch (e) { versionCodigo = null; }
+  }
+  // La cámara solo se pide en el PC del proyector (el servidor la niega por el túnel o la red).
+  // Pide "la imagen siguiente a la última que mostré" (?despues=N): el servidor responde apenas existe,
+  // así cada cuadro llega una sola vez y sin esperas fijas. La decodifica antes de mostrarla (sin
+  // parpadeo) y pone el texto y el estado que el servidor leyó junto con ESA imagen.
+  let ultimoCuadro = null, tSincronia = 0;
+  const camaraAlDia = () => verCamara && performance.now() - tSincronia < 600;
+  async function bucleCamara() {
+    for (;;) {
+      let pausa = 300;                                  // sin cámara a la vista, o si algo falló
+      if (verCamara && !$("#vKinect").classList.contains("oculta")) {
+        try {
+          const despues = ultimoCuadro === null ? "" : "?despues=" + encodeURIComponent(ultimoCuadro);
+          const r = await fetch("/api/kinect/imagen" + despues, { headers: { "X-PGC-Admin": TOKEN }, cache: "no-store" });
+          if (r.ok) {
+            pausa = 0;
+            const cuadro = r.headers.get("X-Kinect-Cuadro");
+            if (cuadro === null) pausa = 200;               // sin número de cuadro no se puede esperar la siguiente
+            if (cuadro === null || cuadro !== ultimoCuadro) {
+              ultimoCuadro = cuadro;
+              const url = URL.createObjectURL(await r.blob());
+              const lista = new Image();
+              lista.src = url;
+              await lista.decode().catch(() => {});
+              const img = $("#kinCamara");
+              img.src = url;
+              img.hidden = false;
+              $("#vKinect").classList.add("con-camara");
+              if (urlCamara) URL.revokeObjectURL(urlCamara);
+              urlCamara = url;
+              if (r.headers.has("X-Kinect-Detalle")) {
+                $("#kinTexto").textContent = decodeURIComponent(r.headers.get("X-Kinect-Texto") || "").toLowerCase();
+                $("#kinDetalle").textContent = decodeURIComponent(r.headers.get("X-Kinect-Detalle"));
+                tSincronia = performance.now();
+              }
+            }
+          } else {
+            $("#kinCamara").hidden = true;
+            $("#vKinect").classList.remove("con-camara");
+          }
+        } catch (e) {}
+      }
+      await new Promise((listo) => setTimeout(listo, pausa));
+    }
+  }
+  if (TOKEN) bucleCamara();
+  const adminJSON = (ruta, cuerpo) => fetch(ruta, { method: "POST",
+    headers: { "X-PGC-Admin": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) });
+  async function ordenKinect(cuerpo, ruta = "/api/kinect/control") {
+    const r = await adminJSON(ruta, cuerpo).catch(() => null);
+    if (!r || !r.ok) avisoAdmin(r ? ((await r.json().catch(() => ({}))).detail || "No se pudo.") : "Sin conexión con el servidor.");
+  }
+  let ecoActivo = false;
+  document.querySelectorAll("#ctrlKinect [data-kin]").forEach((b) =>
+    b.addEventListener("click", () => ordenKinect({ accion: b.dataset.kin })));
+  $("#kinEco").addEventListener("click", () => ordenKinect({ activo: !ecoActivo }, "/api/kinect/eco"));
+  $("#kinLiberar").addEventListener("click", () => ordenKinect({}, "/api/kinect/liberar"));
+  $("#kinNuevoCodigo").addEventListener("click", async () => {
+    const r = await adminJSON("/api/kinect/codigo", {}).catch(() => null);
+    if (r && r.ok) { const d = await r.json(); versionCodigo = d.version; ponerCodigo(d.codigo); avisoAdmin("Código nuevo para el Kinect"); }
+    else avisoAdmin("No se pudo cambiar el código.");
+  });
+  $("#kinDiagnostico").addEventListener("click", () => window.open("/diagnostico", "_blank"));
 
   // ---------- derecha: cola y recientes
   function pintarCola(cola) {
@@ -4808,7 +7558,9 @@ def log(msg):
     ul.textContent = "";
     hist.slice(0, 4).forEach((m) => {
       const li = document.createElement("li");
-      li.textContent = m.texto;
+      const n = document.createElement("span");      // "Jean: hola jurado"
+      n.className = "quien-hist"; n.textContent = (m.nombre || "Anónimo") + ": ";
+      li.append(n, m.texto);
       if (m.saltado) {
         const e = document.createElement("span");
         e.className = "etiqueta"; e.textContent = "saltado";
@@ -4842,7 +7594,6 @@ def log(msg):
     const t = d.tunel;
     estadoFila("Tunel", t.estado === "activo" ? "ok" : t.estado === "iniciando" ? "aviso" : "error",
       t.estado === "activo" ? "Activo" : t.estado === "iniciando" ? "Iniciando…" : t.estado === "apagado" ? "Solo red local" : mayus(t.estado));
-    estadoFila("Kinect", "pendiente", "Próxima fase");
 
     // Letras que sabe hacer la mano (reposo)
     if (m.letras) ponerAlfabeto(m.letras.toUpperCase());
@@ -4856,7 +7607,12 @@ def log(msg):
     actualNombre = a ? a.nombre : null;
     $("#btnBloquear").disabled = !actualPid;
     $("#btnBloquear").textContent = actualPid && actualNombre ? "Bloquear a " + actualNombre : "Bloquear participante";
-    mostrarVista(!!a);
+    const k = d.kinect || {};
+    ecoActivo = !!k.eco;
+    pintarKinect(k, !!a);
+    // La mano tiene prioridad; si no deletrea, se ve el Kinect mientras se usa
+    const verKinect = k.controles && k.conectado && (k.activo || !!k.texto);
+    mostrarVista(a ? "deletreo" : verKinect ? "kinect" : "reposo");
     if (a) pintarDeletreo(a);
     else { claveGlifo = null; idPalabra = null; }
 
@@ -4887,7 +7643,7 @@ def log(msg):
   }
   $("#btnCompleta").addEventListener("click", completa);
   document.addEventListener("keydown", (e) => { if (e.key === "f" || e.key === "F") completa(); });
-  if (!TOKEN) $(".controles").style.display = "none";   // abierta desde otro equipo: sin controles
+  if (!TOKEN) $("#grupos").style.display = "none";      // abierta desde otro equipo: sin controles
   let actualPid = null, actualNombre = null;
   $("#btnBloquear").addEventListener("click", () => {
     if (!actualPid) return;
@@ -7685,6 +10441,10 @@ def configuracion(simular=True, puerto=None, puerto_web=8000, sin_tunel=False, s
     if puerto:
         argv += ["--puerto", puerto]
     cfg = config.cargar(argv, entorno={}, archivo_env=RAIZ / "tests" / "no-existe.env")
+    # Sin Kinect real ni voz de salida salvo que la prueba los pida (con un detector falso o un sintetizador falso).
+    # El turno del Kinect sin código del proyector, salvo que se pida: test_kinect_codigo.py lo prueba con él.
+    ajustes = {"reconocedor": "simulado", "voz_salida": False, "kinect_lanzar": False, "kinect_codigo": False,
+               **ajustes}
     return replace(cfg, pausa_letra=0, pausa_no_disponible=0, **ajustes)
 
 
@@ -7832,6 +10592,177 @@ def test_callbacks_desde_otro_hilo(reconocedor):
     if hasattr(reconocedor, "simular"):
         reconocedor.simular("ab", esperar=True)
         assert hilos and threading.get_ident() not in hilos
+```
+
+## `tests/detector_falso.py`
+
+```python
+"""Detector falso: habla igual que integracion_kinect/detector/server_web_svm.py, sin MediaPipe ni Kinect.
+
+Reproduce su protocolo (server_deletreo_svm.py + server_web_svm.py):
+    GET  /spell/status  "Texto: <texto o —>\\nEstado: <mensaje>"   (texto plano, como el original)
+    POST /spell/start | stop | space | backspace | clear            ("OK"; 400 con el motivo si falla)
+    GET  /preview.jpg   la última imagen recibida, o 503 si no llega ninguna hace más de 3 s
+    POST /detect        recibe un JPEG (lo que manda la app C# o camara_pc.py)
+La prueba "hace" las señas con reconocer("h"), como si el SVM hubiera confirmado la letra.
+"""
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 60 + b"\xff\xd9"       # basta con que parezca un JPEG
+
+
+class DetectorFalso:
+    def __init__(self, con_modelo=True):
+        self.con_modelo = con_modelo
+        self.texto = ""
+        self.activo = False
+        self.estado = "Deletreo detenido."
+        self.imagen = None
+        self.t_imagen = 0.0
+        self.ordenes = []
+        self.consultas = 0
+        self._lock = threading.Lock()
+        self._servidor = ThreadingHTTPServer(("127.0.0.1", 0), self._manejador())
+        self._servidor.daemon_threads = True
+        self.url = f"http://127.0.0.1:{self._servidor.server_address[1]}"
+        threading.Thread(target=self._servidor.serve_forever, daemon=True).start()
+
+    # ---------------------------------------------------------- lo que hace la prueba
+    def reconocer(self, letra):
+        """Como si el SVM hubiera confirmado una letra (el original la agrega en mayúscula)."""
+        with self._lock:
+            if self.activo:
+                self.texto += letra.upper()
+                self.armado = False
+                self.t_cuadro = time.monotonic()
+                self.estado = "Letra añadida. Retira la mano medio segundo para continuar."
+
+    def camara(self, encendida=True):
+        """Simula que llegan (o dejan de llegar) imágenes del Kinect."""
+        self.imagen, self.t_imagen = (JPEG, time.monotonic()) if encendida else (None, 0.0)
+
+    def mantener_camara(self, por_segundo=10):
+        """Llegan cuadros nuevos sin parar, como de una cámara real: cada uno distinto del anterior.
+
+        Se agrega un contador después del final del JPEG (los navegadores lo ignoran). La base es la
+        imagen que haya puesto la prueba (detector.imagen = ...) o JPEG.
+        """
+        self.camara(True)
+        self.cuadros = 0
+
+        def bucle():
+            base = None
+            while self.imagen is not None:
+                if base is None or not self.imagen.startswith(base):
+                    base = self.imagen
+                self.cuadros += 1
+                self.imagen = base + self.cuadros.to_bytes(4, "big")
+                self.t_imagen = time.monotonic()
+                time.sleep(1 / por_segundo)
+        threading.Thread(target=bucle, daemon=True).start()
+
+    def congelar(self):
+        """La app deja de mandar cuadros: el detector repite la última imagen (hasta 3 s)."""
+        imagen = self.imagen
+        self.imagen = None                     # detiene el bucle de mantener_camara
+        time.sleep(0.2)
+        self.imagen, self.t_imagen = imagen, time.monotonic()
+
+    # ---------------------------------------------------------- diagnóstico (lo agrega detector_paralelo.py)
+    con_diagnostico = True
+    manos = 0
+    prediccion = None
+    armado = True
+    t_cuadro = 0.0
+
+    def mostrar(self, letra):
+        """La persona muestra una mano y el SVM predice `letra` (o "sin_letra")."""
+        self.manos, self.prediccion, self.t_cuadro = 1, letra, time.monotonic()
+
+    def retirar(self):
+        self.manos, self.prediccion, self.armado, self.t_cuadro = 0, None, True, time.monotonic()
+
+    def _diagnostico(self):
+        return {"t": self.t_cuadro, "activo": self.activo, "manos": self.manos, "prediccion": self.prediccion,
+                "segunda": "sin_letra" if self.prediccion else None, "margen": 0.8 if self.prediccion else None,
+                "estable_s": 0.0, "confirmaciones": 0, "armado": self.armado, "texto": self.texto,
+                "estado": self.estado, "motivo": "Mano no detectada" if not self.manos else "Confirmando…",
+                "tiempo_confirmacion": 0.7, "tiempo_liberacion": 0.5, "confirmaciones_necesarias": 4,
+                "categorias": list("abcdefghijklmnopqrs") + ["sin_letra"] + list("tuvwxyz")}
+
+    def cerrar(self):
+        self.imagen = None
+        self._servidor.shutdown()
+        self._servidor.server_close()
+
+    # ---------------------------------------------------------- protocolo (igual que DeletreadorSVM)
+    def _comando(self, accion):
+        if accion == "start":
+            if not self.con_modelo:
+                raise ValueError("No existe modelo_estaticas.joblib.")
+            self.activo, self.estado = True, "Mantén una letra estática visible."
+        elif accion == "stop":
+            self.activo, self.estado = False, "Deletreo detenido."
+        elif accion == "space":
+            if self.texto and not self.texto.endswith(" "):
+                self.texto += " "
+        elif accion == "backspace":
+            self.texto = self.texto[:-1]
+        elif accion == "clear":
+            self.texto = ""
+
+    def _estado(self):
+        return "Texto: " + (self.texto or "—") + "\nEstado: " + self.estado
+
+    def _manejador(self):
+        detector = self
+
+        class Manejador(BaseHTTPRequestHandler):
+            def responder(self, codigo, cuerpo, tipo="text/plain; charset=utf-8"):
+                self.send_response(codigo)
+                self.send_header("Content-Type", tipo)
+                self.send_header("Content-Length", str(len(cuerpo)))
+                self.end_headers()
+                self.wfile.write(cuerpo)
+
+            def do_GET(self):
+                if self.path == "/spell/status":
+                    detector.consultas += 1
+                    with detector._lock:
+                        return self.responder(200, detector._estado().encode("utf-8"))
+                if self.path == "/diagnostico" and detector.con_diagnostico:
+                    import json
+                    return self.responder(200, json.dumps(detector._diagnostico()).encode(), "application/json")
+                if self.path == "/preview.jpg":
+                    if detector.imagen is None or time.monotonic() - detector.t_imagen > 3:
+                        return self.responder(503, b"Esperando imagen del Kinect")
+                    return self.responder(200, detector.imagen, "image/jpeg")
+                self.send_error(404)
+
+            def do_POST(self):
+                largo = int(self.headers.get("Content-Length", "0"))
+                datos = self.rfile.read(largo)
+                if self.path == "/detect":
+                    detector.camara(True)
+                    detector.imagen = datos
+                    return self.responder(200, datos, "image/jpeg")
+                accion = self.path.removeprefix("/spell/")
+                if accion not in {"start", "stop", "space", "backspace", "clear"}:
+                    return self.send_error(404)
+                detector.ordenes.append(accion)
+                try:
+                    with detector._lock:
+                        detector._comando(accion)
+                except ValueError as ex:
+                    return self.responder(400, str(ex).encode("utf-8"))
+                self.responder(200, b"OK")
+
+            def log_message(self, *args):
+                pass
+
+        return Manejador
 ```
 
 ## `tests/esp32_falso.py`
@@ -8039,7 +10970,7 @@ def test_enviar_mensaje_y_deletrearlo(abrir_api):
     with abrir_api() as (c, s):
         r = c.post("/api/mensaje", json={"texto": "Hola", "cliente": "A"})
         assert r.status_code == 200
-        assert r.json() == {"id": 1, "texto": "hola", "sesion": s.sesion}
+        assert r.json() == {"id": 1, "texto": "hola", "nombre": "Anónimo", "sesion": s.sesion}
         esperar(lambda: len(s.historial) == 1)
         assert s.mano.ordenes == ["o", "l", "a", "reset"]
 
@@ -8212,7 +11143,7 @@ def test_websocket_sigue_un_mensaje(abrir_api):
             assert [p["r"] for p in d["actual"]["pasos"]] == ["ok", None]
             c.post("/api/mensaje", json={"texto": "c", "cliente": "B"})
             d = recibir_hasta(ws, lambda d: d["cola"])
-            assert d["cola"] == [{"id": 2, "texto": "c", "pid": ANY, "nombre": None}]    # E8: autor
+            assert d["cola"] == [{"id": 2, "texto": "c", "pid": ANY, "nombre": "Anónimo"}]    # E8: autor (sin nombre)
             s.mano.soltar.set()
             d = recibir_hasta(ws, lambda d: len(d["historial"]) == 2 and d["actual"] is None)
     assert [m["texto"] for m in d["historial"]] == ["c", "ab"]
@@ -8454,7 +11385,7 @@ def test_instantanea_no_expone_el_cliente(crear_sistema):
     s = crear_sistema()
     s.encolar("hola", "secreto-del-celular")
     d = s.instantanea()
-    assert d["cola"] == [{"id": 1, "texto": "hola", "pid": ANY, "nombre": None}]     # E8: autor
+    assert d["cola"] == [{"id": 1, "texto": "hola", "pid": ANY, "nombre": "Anónimo"}]     # E8: autor (sin nombre)
     assert re.fullmatch(r"p[0-9a-f]{8}", d["cola"][0]["pid"])
     assert "secreto-del-celular" not in repr(d)
 
@@ -8463,14 +11394,17 @@ def test_instantanea_estructura(crear_sistema):
     s = crear_sistema()
     d = s.instantanea()
     assert set(d) == {"tipo", "sesion", "mano", "voz", "tunel", "url_local", "url_publica", "kinect",
-                      "max_caracteres", "actual", "cola", "historial", "bloqueados"}     # E8: bloqueados
+                      "max_caracteres", "actual", "cola", "historial", "bloqueados", "voz_salida"}     # E8, Kinect
     assert d["bloqueados"] == []
     assert d["tipo"] == "estado"
     assert d["mano"] == {"modo": "simulada", "medio": None, "puerto": None, "letras": None}   # E10: medio
     assert d["voz"] == {"estado": "listo", "dispositivo": "cuda float16"}
     assert d["tunel"] == {"estado": "apagado", "url": None}
     assert d["url_local"] == d["url_publica"] == "http://192.168.0.10:8000"
-    assert d["kinect"] == {"estado": "pendiente"}
+    assert set(d["kinect"]) == {"estado", "detalle", "texto", "conectado", "camara", "activo", "controles",
+                                "frases", "turno", "eco", "codigo", "codigo_version"}      # Kinect integrado
+    assert d["kinect"]["estado"] == "apagado" and d["kinect"]["turno"] is None and d["kinect"]["eco"] is False
+    assert d["voz_salida"] == {"estado": "desactivado"}
     assert d["max_caracteres"] == 60
     assert (d["actual"], d["cola"], d["historial"]) == (None, [], [])
 
@@ -8519,7 +11453,7 @@ def test_resultado_por_paso_y_fin(sistema_con_mano):
     assert m["i"] == len(m["pasos"])
     assert s.actual is None
     d = s.instantanea()
-    assert d["historial"][0] == {"id": m["id"], "texto": "ha b", "saltado": False}
+    assert d["historial"][0] == {"id": m["id"], "texto": "ha b", "nombre": "Anónimo", "saltado": False}
 
 
 def test_secuencia_se_recalcula_con_las_letras_de_la_mano(sistema_con_mano):
@@ -8567,7 +11501,7 @@ def test_estado_durante_el_deletreo(sistema_con_mano):
     s.encolar("abc", "c1")
     s.mano.llego.wait(5)
     a = s.instantanea()["actual"]
-    assert a == {"id": 1, "texto": "abc", "i": 2, "saltado": False, "pid": ANY, "nombre": None, "pasos": [
+    assert a == {"id": 1, "texto": "abc", "i": 2, "saltado": False, "pid": ANY, "nombre": "Anónimo", "pasos": [
         {"c": "A", "tipo": "ok", "r": "ok"}, {"c": "B", "tipo": "ok", "r": "ok"}, {"c": "C", "tipo": "ok", "r": None}]}
 
 
@@ -8584,7 +11518,7 @@ def test_saltar_mensaje(sistema_con_mano):
     assert s.instantanea()["historial"][0]["saltado"] is True
     # El siguiente mensaje se deletrea normal
     assert deletrear(s, "ok", cliente="c2") == ["o", "k", "reset"]
-    assert s.instantanea()["historial"][0] == {"id": 2, "texto": "ok", "saltado": False}
+    assert s.instantanea()["historial"][0] == {"id": 2, "texto": "ok", "nombre": "Anónimo", "saltado": False}
 
 
 def test_reconexion_pedida(sistema_con_mano):
@@ -9072,6 +12006,910 @@ def test_config_ble_de_ejemplo_no_tiene_datos_reales():
     texto = (FIRMWARE / "config_ble.example.py").read_text(encoding="utf-8")
     assert 'NOMBRE = "Mano-LSC"' in texto and 'TOKEN = "cambia-este-token' in texto
     assert not (FIRMWARE / "config_ble.py").exists()
+```
+
+## `tests/test_kinect_adaptador.py`
+
+```python
+"""ReconocedorKinect contra un detector falso que habla como el de integracion_kinect/."""
+import time
+
+import pytest
+
+from conftest import esperar
+from detector_falso import JPEG, DetectorFalso
+
+from pgc.adaptadores.kinect.reconocedor import (NO_CONECTADO, ErrorKinect, ReconocedorKinect,
+                                                eventos_por_cambio, leer_estado)
+from pgc.puertos.reconocedor import ESTADOS, problemas_del_evento
+
+
+def resumen(eventos):
+    return [e.letra if e.tipo == "letra" else e.tipo for e in eventos]
+
+
+# ---------------------------------------------------------------- cambios de texto → eventos
+@pytest.mark.parametrize("antes, despues, esperado", [
+    ("", "", []),
+    ("", "HO", ["h", "o"]),
+    ("HO", "HOL", ["l"]),
+    ("HOL", "HOL ", ["espacio"]),
+    ("HOLA", "HOL", ["borrar"]),
+    ("HOLA", "", ["borrar"] * 4),
+    ("HOLA", "HOJA", ["borrar", "borrar", "j", "a"]),          # se borra hasta lo común y se escribe el resto
+    ("", "A?Ñ", ["a", "ñ"]),                                   # lo que no es letra no se emite
+])
+def test_eventos_por_cambio(antes, despues, esperado):
+    eventos = eventos_por_cambio(antes, despues)
+    assert resumen(eventos) == esperado
+    assert all(not problemas_del_evento(e) for e in eventos)     # cumplen el contrato (minúsculas, etc.)
+
+
+def test_leer_estado_texto_y_json():
+    assert leer_estado("Texto: —\nEstado: Deletreo detenido.")[:2] == ("", "Deletreo detenido.")
+    assert leer_estado("Texto: HOLA\r\nEstado: Posible letra: A")[:2] == ("HOLA", "Posible letra: A")
+    # Si el detector pasa a JSON (lo que le pedimos), se usa sin cambiar el adaptador
+    assert leer_estado('{"texto": "HO", "estado": "x", "activo": true, "confianza": 0.9, "latencia_ms": 80}') == \
+        ("HO", "x", True, 0.9, 80)
+    with pytest.raises(ValueError):
+        leer_estado("cualquier cosa")
+
+
+# ---------------------------------------------------------------- con el detector falso
+@pytest.fixture
+def detector():
+    d = DetectorFalso()
+    yield d
+    d.cerrar()
+
+
+@pytest.fixture
+def kinect(detector):
+    eventos, cambios = [], []
+    r = ReconocedorKinect(url=detector.url, intervalo=0.05)
+    r.iniciar(eventos.append, lambda: cambios.append((r.estado, r.detalle)))
+    yield r, eventos, cambios
+    r.detener()
+
+
+def test_sin_detector_dice_kinect_no_conectado():
+    r = ReconocedorKinect(url="http://127.0.0.1:9", intervalo=0.05)    # puerto cerrado
+    r.iniciar(lambda e: None, lambda: None)
+    try:
+        esperar(lambda: r.estado == "error")
+        assert r.detalle == NO_CONECTADO and not r.conectado
+        with pytest.raises(ErrorKinect, match=NO_CONECTADO):
+            r.controlar("iniciar")
+    finally:
+        r.detener()
+
+
+def test_detector_sin_camara_tambien_es_no_conectado(kinect, detector):
+    r, _, _ = kinect
+    esperar(lambda: r.conectado)
+    assert (r.estado, r.detalle, r.camara) == ("error", NO_CONECTADO, False)
+    detector.mantener_camara()
+    esperar(lambda: r.camara and r.estado == "sin_persona")
+    assert r.detalle == "Deletreo detenido."
+
+
+def test_deletreo_completo(kinect, detector):
+    r, eventos, _ = kinect
+    detector.mantener_camara()
+    esperar(lambda: r.camara)
+    r.controlar("iniciar")
+    assert r.activo and detector.ordenes == ["start"]
+    for letra in "HOLA":
+        detector.reconocer(letra)
+    esperar(lambda: resumen(eventos) == ["h", "o", "l", "a"])
+    assert r.estado == "listo" and r.detalle.startswith("Letra añadida")
+    r.controlar("borrar")
+    r.controlar("espacio")                           # tras borrar: "HOL" + " "
+    esperar(lambda: resumen(eventos)[4:] == ["borrar", "espacio"])
+    detector.reconocer("x")                          # una letra que llega justo antes de «Terminar»
+    r.controlar("terminar")                          # la recoge, emite fin y deja el detector en blanco
+    assert resumen(eventos)[6:] == ["x", "fin"]
+    assert detector.texto == "" and detector.ordenes[-1] == "clear"
+    r.controlar("detener")
+    assert not r.activo
+    assert all(not problemas_del_evento(e) for e in eventos)
+
+
+def test_un_detector_reiniciado_queda_detenido(kinect, detector):
+    r, _, _ = kinect
+    detector.mantener_camara()
+    esperar(lambda: r.camara)
+    r.controlar("iniciar")
+    detector.activo, detector.estado = False, "Deletreo detenido."     # p. ej. alguien lo detuvo en la app C#
+    esperar(lambda: not r.activo)
+
+
+def test_error_del_detector_llega_con_su_motivo(detector):
+    detector.con_modelo = False
+    r = ReconocedorKinect(url=detector.url, intervalo=0.05)
+    r.iniciar(lambda e: None, lambda: None)
+    try:
+        with pytest.raises(ErrorKinect, match="modelo_estaticas.joblib"):
+            r.controlar("iniciar")
+        with pytest.raises(ErrorKinect):
+            r.controlar("saludar")
+    finally:
+        r.detener()
+
+
+def test_imagen_solo_si_llegan_cuadros(kinect, detector):
+    r, _, _ = kinect
+    esperar(lambda: r.conectado)
+    assert r.imagen() is None
+    detector.mantener_camara()
+    esperar(lambda: (r.imagen() or b"").startswith(JPEG))       # cuadros nuevos: JPEG + contador
+
+
+def test_estados_validos_y_detener_dos_veces(kinect):
+    r, _, cambios = kinect
+    esperar(lambda: len(cambios) >= 2)
+    r.detener()
+    r.detener()
+    assert r.estado == "apagado"
+    assert all(estado in ESTADOS for estado, _ in cambios)
+
+
+def test_desde_config():
+    from conftest import configuracion
+    r = ReconocedorKinect.desde_config(configuracion(kinect_url="http://127.0.0.1:8799", kinect_intervalo=0.5))
+    assert (r.url, r.intervalo) == ("http://127.0.0.1:8799", 0.5)
+
+
+# ---------------------------------------------------------------- vista previa: ritmo, pareja estado+imagen, congelada
+def test_mirando_lee_estado_e_imagen_juntos_y_rapido(kinect, detector):
+    r, _, _ = kinect
+    detector.mantener_camara(por_segundo=30)
+    esperar(lambda: r.camara)
+    r.controlar("iniciar")
+    detector.reconocer("A")
+    r.imagen_con_estado()                                   # el proyector empieza a mirar
+    antes, t0 = detector.consultas, time.monotonic()
+    vistos = set()
+    while time.monotonic() - t0 < 1.0:
+        foto = r.imagen_con_estado()
+        vistos.add(foto["cuadro"])
+        time.sleep(0.01)
+    por_segundo = (detector.consultas - antes) / (time.monotonic() - t0)
+    # ~20 vueltas/s (antes ~3). La prueba exige 10 para no fallar con el PC cargado; la cifra real se mide en Edge
+    assert por_segundo >= 10, por_segundo
+    assert len(vistos) >= 10, len(vistos)                   # imágenes distintas por segundo
+    foto = r.imagen_con_estado()
+    assert foto["texto"] == "A" and foto["detalle"].startswith("Letra añadida")   # el estado de ESA imagen
+    assert foto["desfase_ms"] < 50 and foto["edad_ms"] < 200
+
+
+def test_sin_mirar_no_carga_al_detector(kinect, detector):
+    r, _, _ = kinect                                        # intervalo 0,05 en la prueba; nadie pide la imagen
+    detector.mantener_camara()
+    esperar(lambda: r.camara)
+    r._t_pedida = -1e9
+    antes, t0 = detector.consultas, time.monotonic()
+    time.sleep(1)
+    assert (detector.consultas - antes) / (time.monotonic() - t0) <= 25    # solo el estado, a su ritmo normal
+
+
+def test_imagen_congelada_es_kinect_no_conectado(kinect, detector):
+    r, _, _ = kinect
+    detector.mantener_camara()
+    r.imagen_con_estado()                                   # mirando
+    esperar(lambda: r.camara and r.estado == "sin_persona")
+    detector.congelar()                                     # el detector sigue repitiendo la última imagen
+    t0 = time.monotonic()
+    esperar(lambda: r.estado == "error" and r.detalle == NO_CONECTADO, timeout=4)
+    assert time.monotonic() - t0 < 2.5                      # antes: 3 s después de que el detector diera 503
+```
+
+## `tests/test_kinect_codigo.py`
+
+```python
+"""Código del proyector para tomar el turno del Kinect (el «Código del PC» del diseño de Camila).
+
+Con PGC_KINECT_CODIGO=true (por defecto) el proyector muestra 6 dígitos que cambian en
+cada arranque; el celular los escribe para «Activar control». Sigue habiendo un solo
+turno a la vez, con liberación por inactividad, y bloquear a alguien le quita el turno.
+"""
+import re
+
+import pytest
+
+from conftest import admin, configuracion, esperar
+from pgc import config
+from pgc.aplicacion.turno import CodigoIncorrecto, TurnoKinect, TurnoOcupado
+
+
+def tomar(c, cliente, codigo=None):
+    return c.post("/api/kinect/turno", json={"cliente": cliente, "codigo": codigo})
+
+
+def codigo_del_proyector(c):
+    return c.get("/api/kinect/codigo", headers=admin(c)).json()["codigo"]
+
+
+# ---------------------------------------------------------------- configuración
+def test_el_codigo_esta_activo_por_defecto_y_se_desactiva_en_el_env(tmp_path):
+    assert config.Config().kinect_codigo is True
+    env = tmp_path / ".env"
+    env.write_text("PGC_KINECT_CODIGO=false\n", encoding="utf-8")
+    assert config.cargar([], entorno={}, archivo_env=env).kinect_codigo is False
+
+
+# ---------------------------------------------------------------- dominio del turno
+def test_codigo_de_6_digitos_distinto_en_cada_arranque():
+    codigos = {TurnoKinect(con_codigo=True).codigo for _ in range(20)}
+    assert all(re.fullmatch(r"\d{6}", c) for c in codigos)
+    assert len(codigos) > 1
+
+
+def test_sin_el_codigo_correcto_no_hay_turno():
+    t = TurnoKinect(con_codigo=True)
+    for malo in (None, "", "12345", "abcdef", str((int(t.codigo) + 1) % 10**6).zfill(6)):
+        with pytest.raises(CodigoIncorrecto):
+            t.tomar("A", "p1", "Ana", malo)
+    assert t.instantanea() is None
+    t.tomar("A", "p1", "Ana", " " + t.codigo[:3] + " " + t.codigo[3:])    # espacios del teclado: se aceptan
+    assert t.es_dueno("A")
+
+
+def test_con_el_codigo_sigue_habiendo_un_solo_turno_y_se_libera_solo():
+    reloj = [0.0]
+    t = TurnoKinect(segundos=120, reloj=lambda: reloj[0], con_codigo=True)
+    t.tomar("A", "p1", "Ana", t.codigo)
+    with pytest.raises(TurnoOcupado):
+        t.tomar("B", "p2", "Beto", t.codigo)          # aunque sepa el código
+    reloj[0] = 121
+    t.tomar("B", "p2", "Beto", t.codigo)
+    assert t.es_dueno("B")
+
+
+def test_regenerar_cambia_el_codigo_y_quita_el_turno():
+    t = TurnoKinect(con_codigo=True)
+    viejo = t.codigo
+    t.tomar("A", "p1", "Ana", viejo)
+    nuevos = {t.regenerar_codigo() for _ in range(5)}
+    assert t.version_codigo == 5 and t.instantanea() is None
+    assert viejo != t.codigo or len(nuevos) > 1
+    if viejo != t.codigo:
+        with pytest.raises(CodigoIncorrecto):
+            t.tomar("A", "p1", "Ana", viejo)
+
+
+def test_sin_codigo_configurado_no_se_pide():
+    t = TurnoKinect(con_codigo=False)
+    assert t.codigo is None and t.regenerar_codigo() is None
+    t.tomar("A", "p1", "Ana")
+    assert t.es_dueno("A")
+
+
+# ---------------------------------------------------------------- API
+@pytest.fixture
+def con_codigo(abrir_api, detector):
+    def abrir(desde="testclient", **opciones):
+        return abrir_api(desde, reconocedor="kinect", kinect_url=detector.url, kinect_intervalo=0.05,
+                         kinect_codigo=True, **opciones)
+    return abrir
+
+
+@pytest.fixture
+def detector():
+    from detector_falso import DetectorFalso
+    d = DetectorFalso()
+    d.mantener_camara()
+    yield d
+    d.cerrar()
+
+
+def test_el_celular_necesita_el_codigo_del_proyector(con_codigo):
+    with con_codigo() as (c, s):
+        codigo = s.senas.turno.codigo
+        r = tomar(c, "A")
+        assert r.status_code == 403 and "código" in r.json()["detail"].lower()
+        assert tomar(c, "A", "000000" if codigo != "000000" else "111111").status_code == 403
+        assert tomar(c, "A", "x" * 40).status_code == 422          # validación amable, en español
+        assert "proyector" in tomar(c, "A", "x" * 40).json()["detail"]
+        assert tomar(c, "A", codigo).status_code == 200
+        assert s.senas.turno.es_dueno("A")
+        assert tomar(c, "B", codigo).status_code == 409             # un solo turno a la vez
+
+
+def test_el_codigo_nunca_va_a_los_celulares(con_codigo):
+    with con_codigo() as (c, s):
+        codigo = s.senas.turno.codigo
+        estado = c.get("/api/estado")
+        assert codigo not in estado.text
+        assert estado.json()["kinect"]["codigo"] is True
+        assert c.get("/api/kinect/codigo").status_code in (401, 403)            # sin token
+        assert c.post("/api/kinect/codigo").status_code in (401, 403)
+        assert codigo not in c.get("/").text
+
+
+def test_el_proyector_ve_y_regenera_el_codigo(con_codigo):
+    with con_codigo("127.0.0.1") as (pc, s):
+        d = pc.get("/api/kinect/codigo", headers=admin(pc)).json()
+        assert d == {"activo": True, "codigo": s.senas.turno.codigo, "version": 0}
+        tomar(pc, "A", d["codigo"])
+        assert s.senas.turno.es_dueno("A")
+        nuevo = pc.post("/api/kinect/codigo", headers=admin(pc)).json()
+        assert nuevo["version"] == 1 and re.fullmatch(r"\d{6}", nuevo["codigo"])
+        assert s.senas.turno.instantanea() is None                              # quien lo tenía lo pierde
+        esperar(lambda: pc.get("/api/estado").json()["kinect"]["codigo_version"] == 1)
+
+
+def test_bloquear_quita_el_turno_tambien_con_codigo(con_codigo):
+    with con_codigo("127.0.0.1") as (pc, s):
+        pid = pc.post("/api/participante", json={"cliente": "A", "nombre": "Ana"}).json()["pid"]
+        assert tomar(pc, "A", s.senas.turno.codigo).status_code == 200
+        pc.post(f"/api/participantes/{pid}/bloquear", headers=admin(pc))
+        assert s.senas.turno.instantanea() is None
+        assert tomar(pc, "A", s.senas.turno.codigo).status_code == 403
+
+
+def test_sin_codigo_en_el_env_basta_activar_control(abrir_api, detector):
+    with abrir_api(reconocedor="kinect", kinect_url=detector.url, kinect_codigo=False) as (c, s):
+        assert c.get("/api/estado").json()["kinect"]["codigo"] is False
+        assert tomar(c, "A").status_code == 200
+
+
+def test_adivinar_el_codigo_tiene_limite(con_codigo):
+    with con_codigo(lim_kinect_cliente=1000) as (c, s):
+        codigos = [str(n).zfill(6) for n in range(40) if str(n).zfill(6) != s.senas.turno.codigo]
+        respuestas = [tomar(c, f"c{n}", cod).status_code for n, cod in enumerate(codigos)]
+        assert 429 in respuestas and respuestas.count(403) <= 30
+
+
+# ---------------------------------------------------------------- páginas
+def test_la_pestana_tiene_el_diseno_de_camila(carpeta_web):
+    html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
+    pestana = html[html.index('<section id="tab-kinect"'):html.index("<!-- ===================== MIS MENSAJES")]
+    # En su orden: texto grande, estado, acceso con el código y botones en cuadrícula
+    orden = ["Tus letras aparecerán aquí", 'id="kinDetalle"', 'id="kinModo"', "Código del PC", "Activar control",
+             "Volver a espectador", 'data-kin="iniciar"', 'data-kin="detener"', 'data-kin="espacio"',
+             'data-kin="borrar"', 'data-kin="limpiar"', ">Guardar TXT<", ">Leer frase<", ">Detener voz<",
+             'data-kin="terminar"', 'id="kinEco"']
+    posiciones = [pestana.index(t) for t in orden]
+    assert posiciones == sorted(posiciones), orden
+    assert 'class="kin-botones"' in pestana and "grid-template-columns" in html
+    assert 'inputmode="numeric"' in pestana and 'maxlength="6"' in pestana
+    assert "Terminar y decirlo" in pestana
+
+
+def test_el_proyector_muestra_y_regenera_el_codigo(carpeta_web):
+    html = (carpeta_web / "pantalla.html").read_text(encoding="utf-8")
+    assert 'id="kinCodigo"' in html and 'id="kinNuevoCodigo"' in html
+    assert "/api/kinect/codigo" in html
+
+
+def test_la_pagina_del_celular_envia_el_codigo(carpeta_web):
+    html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
+    assert '"/api/kinect/turno", { codigo' in html
+    assert "/api/kinect/codigo" not in html          # el celular nunca pide el código
+
+
+def test_configuracion_de_pruebas_sin_codigo_por_defecto():
+    assert configuracion().kinect_codigo is False
+```
+
+## `tests/test_kinect_lanzador.py`
+
+```python
+"""Arranque del detector y del capturador junto con la plataforma (sin abrir procesos de verdad)."""
+import subprocess
+import threading
+import time
+
+import pytest
+
+from conftest import configuracion, esperar
+
+from pgc.adaptadores.kinect import procesos
+from pgc.adaptadores.kinect.procesos import LanzadorKinect
+
+
+class ProcesoFalso:
+    def __init__(self, comando, **kw):
+        self.comando, self.kw = comando, kw
+        self.terminado = threading.Event()
+        self._handle = 0
+        self.pid = 4242
+
+    def wait(self, timeout=None):
+        if not self.terminado.wait(timeout if timeout is not None else 30):
+            raise subprocess.TimeoutExpired(self.comando, timeout)
+        return 0
+
+    def poll(self):
+        return 0 if self.terminado.is_set() else None
+
+    def terminate(self):
+        self.terminado.set()
+
+    kill = terminate
+
+
+@pytest.fixture
+def lanzados(monkeypatch, tmp_path):
+    lista = []
+    monkeypatch.setattr(procesos, "REGISTROS", tmp_path)
+    monkeypatch.setattr(procesos, "puerto_ocupado", lambda url: False)
+    monkeypatch.setattr(procesos, "atar_al_proceso_actual", lambda proc: None)
+
+    def popen(comando, **kw):
+        p = ProcesoFalso(comando, **kw)
+        lista.append(p)
+        return p
+    return lista, popen, tmp_path
+
+
+def lanzador(lanzados, python=True, exe=True, listo=lambda url: True, ventanas=None, restos=(), cerrados=None,
+             **ajustes):
+    lista, popen, carpeta = lanzados
+    (carpeta / "python.exe").write_bytes(b"")
+    (carpeta / "LSCKinectFramework.exe").write_bytes(b"")
+    cfg = configuracion(**{"reconocedor": "kinect", "kinect_lanzar": True, **ajustes})
+    log = []
+    l = LanzadorKinect(cfg, log.append, popen=popen,
+                       pythons=[carpeta / ("python.exe" if python else "no-existe.exe")],
+                       exes=[carpeta / ("LSCKinectFramework.exe" if exe else "no-existe.exe")],
+                       listo=listo, minimizar=lambda pid: (ventanas if ventanas is not None else [("Kinect", True)]),
+                       espera_detector=2.0,
+                       # nunca buscar ni cerrar procesos reales desde las pruebas
+                       buscar_restos=lambda: list(restos),
+                       cerrar=(cerrados.append if cerrados is not None else (lambda pid: None)))
+    return l, log
+
+
+def test_lanza_detector_y_app_del_kinect_y_los_cierra(lanzados):
+    lista, _, carpeta = lanzados
+    l, log = lanzador(lanzados)
+    l.iniciar()
+    esperar(lambda: len(lista) == 2)
+    detector = next(p for p in lista if "detector_paralelo.py" in " ".join(p.comando))
+    assert detector.comando[-1] == str(procesos.DETECTOR)           # envuelve SU server_web_svm.py, sin cambiarlo
+    app = next(p for p in lista if p.comando[0].endswith("LSCKinectFramework.exe"))
+    assert detector.comando[0] == str(carpeta / "python.exe")
+    assert detector.kw["cwd"] == str(procesos.DETECTOR)                 # su carpeta, sus archivos, tal cual
+    assert detector.kw["env"]["PYTHONDONTWRITEBYTECODE"] == "1"           # sin __pycache__ en su carpeta
+    assert app.kw["startupinfo"] is None or app.kw["startupinfo"].wShowWindow == procesos.MINIMIZADA
+    l.detener()
+    assert all(p.terminado.is_set() for p in lista)
+
+
+def test_camara_del_pc_en_lugar_del_kinect(lanzados):
+    lista, _, carpeta = lanzados
+    l, log = lanzador(lanzados, kinect_capturador="camara_pc", kinect_camara=1)
+    l.iniciar()
+    esperar(lambda: len(lista) == 2)
+    camara = next(p for p in lista if "camara_pc.py" in " ".join(p.comando))
+    assert camara.comando[0] == str(carpeta / "python.exe")            # el Python del detector (trae OpenCV)
+    assert camara.comando[-2:] == ["--camara", "1"]
+    l.detener()
+
+
+def test_sin_entorno_ni_exe_avisa_y_no_lanza_nada(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, python=False, exe=False)
+    l.iniciar()
+    esperar(lambda: any("No está la app del Kinect" in x for x in log))
+    assert lista == []
+    texto = " ".join(log)
+    assert "Falta el entorno del detector" in texto and "No está la app del Kinect compilada" in texto
+
+
+def test_detector_ya_corriendo_no_se_duplica(lanzados, monkeypatch):
+    lista, _, _ = lanzados
+    monkeypatch.setattr(procesos, "puerto_ocupado", lambda url: True)
+    l, log = lanzador(lanzados, kinect_capturador="no")
+    l.iniciar()
+    assert lista == [] and any("Ya hay un detector" in x for x in log)
+
+
+@pytest.mark.parametrize("ajustes", [{"kinect_lanzar": False}, {"reconocedor": "simulado"}])
+def test_no_lanza_si_no_corresponde(lanzados, ajustes):
+    lista, _, _ = lanzados
+    l, _ = lanzador(lanzados, **ajustes)
+    l.iniciar()
+    assert lista == []
+
+
+def test_el_detector_se_reinicia_si_se_cae(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, kinect_capturador="no")
+    l._parar.wait = lambda s: False                        # sin esperar los 3 s entre intentos
+    l.iniciar()
+    esperar(lambda: len(lista) == 1)
+    lista[0].terminate()                                  # se cae
+    esperar(lambda: len(lista) == 2)
+    assert any("se reinicia" in x for x in log)
+    l.detener()
+
+
+def test_config_del_capturador_se_valida():
+    from pgc.config import Config, ErrorConfig, validar
+    with pytest.raises(ErrorConfig, match="PGC_KINECT_CAPTURADOR"):
+        validar(Config(kinect_capturador="webcam"))
+    with pytest.raises(ErrorConfig, match="PGC_KINECT_URL"):          # el detector siempre en este PC
+        validar(Config(kinect_url="http://192.168.0.5:8765"))
+
+
+def test_la_app_espera_a_que_el_detector_responda(lanzados):
+    """Antes se abrían a la vez y la app mandaba imágenes ~4,5 s a un detector que aún no existía."""
+    lista, _, _ = lanzados
+    listo = threading.Event()
+    l, log = lanzador(lanzados, listo=lambda url: listo.is_set())
+    l.iniciar()
+    esperar(lambda: len(lista) == 1)                     # solo el detector
+    time.sleep(0.6)
+    assert len(lista) == 1 and "detector_paralelo.py" in " ".join(lista[0].comando)
+    listo.set()                                          # el detector ya responde
+    esperar(lambda: len(lista) == 2)
+    assert lista[1].comando[0].endswith("LSCKinectFramework.exe")
+    assert any("Detector listo en" in x for x in log)
+    l.detener()
+
+
+def test_si_el_detector_no_responde_la_app_se_abre_igual(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, listo=lambda url: False)          # espera_detector = 2 s en la prueba
+    l.iniciar()
+    esperar(lambda: len(lista) == 2, timeout=6)
+    assert any("no respondió en 2 s" in x for x in log)
+    l.detener()
+
+
+def test_si_la_ventana_se_abre_en_grande_se_minimiza(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, kinect_capturador="kinect", ventanas=[("Kinect - Ejemplos de LSC", False)])
+    l.iniciar()
+    esperar(lambda: any("se minimizó" in x for x in log))
+    l.detener()
+
+
+def test_se_puede_volver_a_su_servidor_original(lanzados):
+    lista, _, _ = lanzados
+    l, _ = lanzador(lanzados, kinect_capturador="no", kinect_detector_paralelo=False)
+    l.iniciar()
+    esperar(lambda: len(lista) == 1)
+    assert lista[0].comando[-1] == "server_web_svm.py"
+    l.detener()
+
+
+def test_cierra_los_restos_antes_de_lanzar(lanzados):
+    lista, _, _ = lanzados
+    cerrados = []
+    restos = [(111, "python.exe", "python.exe -u detector_paralelo.py carpeta"),
+              (112, "python.exe", "python.exe -u server_web_svm.py"),
+              (113, "LSCKinectFramework.exe", "LSCKinectFramework.exe")]
+    l, log = lanzador(lanzados, restos=restos, cerrados=cerrados)
+    l.iniciar()
+    assert cerrados == [111, 112, 113]                      # se cierran ANTES de lanzar los nuevos
+    assert any("restos de una ejecución anterior: 1 app del Kinect, 2 detector" in x for x in log)
+    esperar(lambda: len(lista) == 2)                         # y luego uno de cada uno
+    l.detener()
+
+
+def test_tipos_de_resto():
+    assert procesos.tipo_de_resto("LSCKinectFramework.exe", "") == "app del Kinect"
+    assert procesos.tipo_de_resto("python.exe", "python camara_pc.py --camara 0") == "cámara del PC"
+    assert procesos.tipo_de_resto("python.exe", "python -u detector_paralelo.py carpeta") == "detector"
+
+
+def test_no_arranca_una_segunda_plataforma(monkeypatch, capsys):
+    from pgc import arranque
+    monkeypatch.setattr(arranque, "puerto_en_uso", lambda puerto: True)
+    lanzados = []
+    monkeypatch.setattr(arranque, "crear_lanzador", lambda cfg, log: lanzados.append(1))
+    assert arranque.main(["--simular", "--no-abrir", "--puerto-web", "8799"]) == 3
+    assert lanzados == []                                    # no se tocó nada de la otra plataforma
+    assert "Ya hay una plataforma corriendo" in capsys.readouterr().err
+
+
+def test_buscar_restos_cuenta_el_lanzador_del_entorno_y_su_hijo_como_uno(monkeypatch):
+    import json
+    import types
+    datos = [{"ProcessId": 10, "ParentProcessId": 1, "Name": "python.exe", "CommandLine": "python -u detector_paralelo.py c"},
+             {"ProcessId": 11, "ParentProcessId": 10, "Name": "python.exe", "CommandLine": "python -u detector_paralelo.py c"},
+             {"ProcessId": 12, "ParentProcessId": 1, "Name": "LSCKinectFramework.exe", "CommandLine": "x"},
+             {"ProcessId": 13, "ParentProcessId": 1, "Name": "python.exe", "CommandLine": "python -m pgc"}]
+    monkeypatch.setattr(procesos.os, "name", "nt")
+    monkeypatch.setattr(procesos.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=json.dumps(datos)))
+    assert [r[0] for r in procesos.buscar_restos()] == [10, 12]          # ni el hijo 11 ni la plataforma 13
+```
+
+## `tests/test_kinect_paginas.py`
+
+```python
+"""Pestaña Kinect del celular y vista Kinect del proyector (contenido de las páginas)."""
+import importlib
+import re
+import sys
+
+import pytest
+
+from conftest import RAIZ
+
+
+def test_el_celular_ya_no_dice_siguiente_fase(carpeta_web):
+    html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
+    assert "siguiente fase" not in html.lower()
+    for id_ in ("kinEstado", "kinTexto", "kinDetalle", "kinTomar", "kinSoltar", "kinOcupado", "avisoKinect",
+                "kinModo", "kinGuardar", "kinLeer", "kinCallar", "kinVoz"):
+        assert f'id="{id_}"' in html, id_
+    for accion in ("iniciar", "detener", "espacio", "borrar", "limpiar", "terminar"):   # los controles que ella diseñó
+        assert f'data-kin="{accion}"' in html, accion
+    assert "Kinect no conectado" in html
+    # Sus funciones y mensajes (pestaña de iniciar_pgc_integrado.py, incorporada a movil.html)
+    for texto in ("Activar control", "Volver a espectador", "Guardar TXT", "Leer frase", "Detener voz",
+                  "Modo espectador.", "Control del teléfono activo", "Leyendo...", "Lectura terminada.",
+                  "Lectura detenida.", "Lectura detenida o audio no disponible.", "No hay una voz en español disponible",
+                  'download = "texto_lsc.txt"', "speechSynthesis"):
+        assert texto in html, texto
+
+
+def test_guardar_y_leer_no_dependen_del_turno(carpeta_web):
+    """Los espectadores también guardan y leen: esos botones no son controles del deletreo (data-kin),
+    que son los únicos que el turno apaga."""
+    html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
+    botones = html[html.index('<div id="kinMios"'):html.index('<p id="kinVoz"')]
+    for id_ in ("kinGuardar", "kinLeer", "kinCallar"):
+        boton = re.search(rf'<button id="{id_}"[^>]*>', botones).group(0)
+        assert "data-kin" not in boton, id_
+    assert 'data-kin="limpiar"' in botones
+    assert 'querySelectorAll("[data-kin]")' in html and "!puede" in html
+
+
+@pytest.mark.parametrize("pagina", ["movil.html", "pantalla.html"])
+def test_hidden_siempre_oculta(carpeta_web, pagina):
+    """El error de «Volver a espectador»: .btn { display: flex } le ganaba al atributo hidden."""
+    assert "[hidden] { display: none !important; }" in (carpeta_web / pagina).read_text(encoding="utf-8") or \
+        ".oculto, [hidden] { display: none !important; }" in (carpeta_web / pagina).read_text(encoding="utf-8")
+
+
+def test_los_celulares_no_consultan_el_kinect(carpeta_web):
+    """Todo llega por el WebSocket: la página del celular no consulta rutas del Kinect ni del detector."""
+    html = (carpeta_web / "movil.html").read_text(encoding="utf-8")
+    assert "/api/deletreo" not in html and "8765" not in html and "/api/kinect/imagen" not in html
+
+
+def test_el_proyector_tiene_la_vista_kinect(carpeta_web):
+    html = (carpeta_web / "pantalla.html").read_text(encoding="utf-8")
+    for id_ in ("vKinect", "kinTexto", "kinCamara", "kinFrase", "kinTira", "ctrlKinect", "kinEco", "kinLiberar"):
+        assert f'id="{id_}"' in html, id_
+    assert "Próxima fase" not in html
+
+
+def test_el_lanzador_antiguo_aun_arma_su_pagina():
+    """iniciar_pgc_integrado.py (obsoleto, de Camila) busca marcas en movil.html: no se le rompe nada."""
+    sys.path.insert(0, str(RAIZ))
+    modulo = importlib.import_module("iniciar_pgc_integrado")
+    html = modulo.construir_html()
+    assert "De tus manos al texto" in html and 'id="codigoControlKinect"' in html     # su panel reemplazó al mío
+    assert 'id="kinTomar"' not in html
+```
+
+## `tests/test_kinect_plataforma.py`
+
+```python
+"""Kinect integrado en la plataforma: turno, controles, imagen solo en el PC, voz, eco y varios celulares."""
+import time
+from contextlib import ExitStack
+
+import pytest
+
+from conftest import admin, esperar
+from detector_falso import JPEG, DetectorFalso
+
+PC = "127.0.0.1"
+TUNEL = {"CF-Connecting-IP": "181.50.1.2"}       # así llega cloudflared: desde 127.0.0.1 con este encabezado
+
+
+class SintetizadorFalso:
+    estado = "listo"
+
+    def __init__(self):
+        self.dichas = []
+
+    def cargar_en_segundo_plano(self):
+        pass
+
+    def decir(self, texto):
+        self.dichas.append(texto)
+
+
+@pytest.fixture
+def detector():
+    d = DetectorFalso()
+    d.mantener_camara()
+    yield d
+    d.cerrar()
+
+
+@pytest.fixture
+def con_kinect(abrir_api, detector):
+    """API con el ReconocedorKinect real apuntando al detector falso."""
+    def abrir(desde="testclient", **opciones):
+        return abrir_api(desde, reconocedor="kinect", kinect_url=detector.url, kinect_intervalo=0.05, **opciones)
+    return abrir
+
+
+SECRETO = "celular-secreto-de-ana"
+
+
+def registrar(c, cliente, nombre=None):
+    return c.post("/api/participante", json={"cliente": cliente, "nombre": nombre}).json()
+
+
+def control(c, accion, cliente=None, **kw):
+    return c.post("/api/kinect/control", json={"accion": accion, "cliente": cliente}, **kw)
+
+
+# ---------------------------------------------------------------- turno: un jurado a la vez
+def test_un_solo_jurado_controla_el_kinect(con_kinect):
+    with con_kinect() as (c, s):
+        registrar(c, SECRETO, "Ana")
+        registrar(c, "B", "Beto")
+        assert control(c, "iniciar", SECRETO).status_code == 403          # sin turno no hay controles
+        assert c.post("/api/kinect/turno", json={"cliente": SECRETO}).status_code == 200
+        r = c.post("/api/kinect/turno", json={"cliente": "B"})
+        assert r.status_code == 409 and "Ana" in r.json()["detail"]
+        assert control(c, "iniciar", SECRETO).status_code == 200
+        assert control(c, "detener", "B").status_code == 403
+        turno = c.get("/api/estado").json()["kinect"]["turno"]
+        assert turno["nombre"] == "Ana" and turno["pid"] and SECRETO not in repr(turno)   # nunca el id privado
+        assert c.post("/api/kinect/turno/soltar", json={"cliente": SECRETO}).status_code == 200
+        assert c.post("/api/kinect/turno", json={"cliente": "B"}).status_code == 200
+
+
+def test_el_turno_se_libera_solo_por_inactividad(con_kinect):
+    with con_kinect() as (c, s):
+        reloj = [1000.0]
+        s.senas.turno._reloj = lambda: reloj[0]
+        c.post("/api/kinect/turno", json={"cliente": "A"})
+        reloj[0] += 60
+        assert control(c, "iniciar", "A").status_code == 200           # usarlo reinicia la espera
+        reloj[0] += 100
+        assert c.post("/api/kinect/turno", json={"cliente": "B"}).status_code == 409
+        reloj[0] += 21                                                 # 121 s sin usarlo
+        esperar(lambda: c.get("/api/estado").json()["kinect"]["turno"] is None)     # lo libera el hilo de señas
+        assert c.post("/api/kinect/turno", json={"cliente": "B"}).status_code == 200
+
+
+def test_bloquear_quita_el_turno(con_kinect):
+    with con_kinect(PC) as (pc, s2):
+        pid = registrar(pc, "A", "Ana")["pid"]
+        pc.post("/api/kinect/turno", json={"cliente": "A"})
+        assert pc.post(f"/api/participantes/{pid}/bloquear", headers=admin(pc)).status_code == 200
+        assert s2.senas.turno.instantanea() is None
+        r = pc.post("/api/kinect/turno", json={"cliente": "A"})
+        assert r.status_code == 403 and "pausó" in r.json()["detail"]
+
+
+def test_el_presentador_controla_siempre_y_libera_el_turno(con_kinect):
+    with con_kinect(PC) as (c, s):
+        c.post("/api/kinect/turno", json={"cliente": "A"})
+        assert control(c, "iniciar", headers=admin(c)).status_code == 200      # aunque A tenga el turno
+        assert control(c, "iniciar").status_code == 403                         # sin token, no
+        assert c.post("/api/kinect/liberar").status_code == 403
+        assert c.post("/api/kinect/liberar", headers=admin(c)).status_code == 200
+        assert s.senas.turno.instantanea() is None
+
+
+def test_controles_con_detector_caido_o_sin_controles(abrir_api, con_kinect, detector):
+    with abrir_api(PC) as (c, s):                                   # reconocedor simulado: no tiene controles
+        assert control(c, "iniciar", headers=admin(c)).status_code == 409
+    detector.cerrar()
+    with con_kinect(PC) as (c, s):
+        r = control(c, "iniciar", headers=admin(c))
+        assert r.status_code == 503 and r.json()["detail"] == "Kinect no conectado"
+        esperar(lambda: c.get("/api/estado").json()["kinect"]["detalle"] == "Kinect no conectado")
+
+
+# ---------------------------------------------------------------- imagen: solo el PC del proyector
+def test_imagen_solo_en_el_pc_con_token(con_kinect):
+    with con_kinect(PC) as (c, s):
+        esperar(lambda: s.senas.reconocedor.camara)
+        esperar(lambda: c.get("/api/kinect/imagen", headers=admin(c)).status_code == 200)
+        r = c.get("/api/kinect/imagen", headers=admin(c))
+        assert r.content.startswith(JPEG) and r.headers["content-type"] == "image/jpeg"
+        assert c.get("/api/kinect/imagen").status_code == 403                        # PC sin token
+        assert c.get("/api/kinect/imagen", headers={**admin(c), **TUNEL}).status_code == 403   # por el túnel
+    with con_kinect() as (c, s):
+        assert c.get("/api/kinect/imagen").status_code == 403                        # un celular
+
+
+# ---------------------------------------------------------------- en vivo, voz y eco
+def test_texto_en_vivo_voz_y_eco(con_kinect, detector):
+    with con_kinect(PC) as (c, s):
+        s.voz_salida = voz = SintetizadorFalso()
+        esperar(lambda: s.senas.reconocedor.camara)
+        control(c, "iniciar", headers=admin(c))
+        with c.websocket_connect("/ws") as ws:
+            for letra in "HOGA":
+                detector.reconocer(letra)
+            while True:                                            # el celular lo ve por el WebSocket
+                d = ws.receive_json()
+                if d.get("tipo") == "estado" and d["kinect"]["texto"] == "hoga":
+                    break
+        assert d["kinect"]["activo"] and d["kinect"]["camara"] and d["kinect"]["estado"] == "listo"
+        # Sin eco: se dice en voz alta y no va a la mano
+        control(c, "terminar", headers=admin(c))
+        esperar(lambda: voz.dichas == ["hoga"])
+        assert s.instantanea()["kinect"]["frases"] == ["hoga"] and s.cola == [] and s.actual is None
+        # Con eco: además, la mano la deletrea (la G y la H se muestran como no disponibles)
+        assert c.post("/api/kinect/eco", json={"activo": True}, headers=admin(c)).json() == {"eco": True}
+        for letra in "HOGA":
+            detector.reconocer(letra)
+        esperar(lambda: s.senas.texto == "hoga")
+        control(c, "terminar", headers=admin(c))
+        esperar(lambda: voz.dichas == ["hoga", "hoga"])
+        esperar(lambda: s.historial and s.historial[0]["nombre"] == "Kinect", timeout=10)
+        tipos = [(p["c"], p["tipo"]) for p in s.historial[0]["pasos"]]
+        assert tipos == [("H", "nd"), ("O", "ok"), ("G", "nd"), ("A", "ok")]
+
+
+def test_eco_solo_el_presentador(con_kinect):
+    with con_kinect() as (c, s):
+        assert c.post("/api/kinect/eco", json={"activo": True}).status_code == 403
+    with con_kinect(PC) as (c, s):
+        assert c.post("/api/kinect/eco", json={"activo": True}, headers={**admin(c), **TUNEL}).status_code == 403
+
+
+def test_eco_sin_letras_posibles_no_tumba_nada(crear_sistema, registro):
+    s = crear_sistema(kinect_eco=True)
+    s._frase_reconocida("gh")
+    assert s.cola == [] and any("Eco: la frase no va a la mano" in l for l in registro)
+
+
+# ---------------------------------------------------------------- varios celulares (límites)
+def test_muchos_celulares_con_la_pestana_kinect_no_cargan_al_detector(con_kinect, detector):
+    """Los celulares no consultan nada: el servidor lee el detector a ritmo fijo y lo reparte por el WebSocket."""
+    with con_kinect() as (c, s):                    # todos "desde el mismo WiFi": una sola IP
+        esperar(lambda: detector.consultas > 3)
+        antes, t0 = detector.consultas, time.monotonic()
+        time.sleep(1)
+        solo = (detector.consultas - antes) / (time.monotonic() - t0)
+        with ExitStack() as pila:
+            conexiones = [pila.enter_context(c.websocket_connect("/ws")) for _ in range(30)]
+            for ws in conexiones:
+                assert ws.receive_json()["tipo"] == "estado"          # aceptadas (antes el límite era 8 por IP)
+            antes, t0 = detector.consultas, time.monotonic()
+            time.sleep(1)
+            con_30 = (detector.consultas - antes) / (time.monotonic() - t0)
+        assert con_30 < solo * 1.5 + 5, (solo, con_30)              # no crece con el número de celulares
+
+
+def test_limpiar_borra_todo_y_solo_con_turno(con_kinect, detector):
+    with con_kinect() as (c, s):
+        esperar(lambda: s.senas.reconocedor.camara)
+        c.post("/api/kinect/turno", json={"cliente": "A"})
+        assert control(c, "iniciar", "A").status_code == 200
+        for letra in "HOLA":
+            detector.reconocer(letra)
+        esperar(lambda: s.senas.texto == "hola")
+        assert control(c, "limpiar", "B").status_code == 403          # un espectador no limpia
+        assert control(c, "limpiar", "A").status_code == 200
+        assert detector.texto == "" and detector.ordenes[-1] == "clear"
+        esperar(lambda: s.senas.texto == "" and c.get("/api/estado").json()["kinect"]["texto"] == "")
+        assert s.senas.frases == []                                    # limpiar no es terminar: no se dice nada
+
+
+def test_la_imagen_siguiente_llega_apenas_existe(con_kinect, detector):
+    """?despues=N: el proyector recibe cada cuadro una sola vez, sin pedirlo una y otra vez."""
+    with con_kinect(PC) as (c, s):
+        detector.mantener_camara(por_segundo=20)
+        esperar(lambda: c.get("/api/kinect/imagen", headers=admin(c)).status_code == 200)
+        cuadros, t0 = [], time.monotonic()
+        ultimo = int(c.get("/api/kinect/imagen", headers=admin(c)).headers["X-Kinect-Cuadro"])
+        while time.monotonic() - t0 < 1.0:
+            r = c.get(f"/api/kinect/imagen?despues={ultimo}", headers=admin(c))
+            ultimo = int(r.headers["X-Kinect-Cuadro"])
+            cuadros.append(ultimo)
+        assert len(cuadros) == len(set(cuadros))                # ningún cuadro repetido
+        assert len(cuadros) >= 10, len(cuadros)                 # la prueba exige 10/s; en Edge se mide la cifra real
+        assert float(r.headers["X-Kinect-Desfase-Ms"]) < 100    # estado e imagen del mismo momento
 ```
 
 ## `tests/test_mano_ble.py`
@@ -9723,7 +13561,26 @@ def test_mensaje_de_en_el_proyector(abrir_api):
         registrar(c, "A", "Ana María")                         # cambiar el nombre no cambia lo ya enviado
         d = c.get("/api/estado").json()
         assert d["actual"]["nombre"] == "Ana"
-        assert [(m["texto"], m["nombre"]) for m in d["cola"]] == [("uña", None)]
+        assert [(m["texto"], m["nombre"]) for m in d["cola"]] == [("uña", "Anónimo")]
+
+
+def test_el_nombre_viaja_con_el_mensaje_hasta_recientes(abrir_api):
+    with abrir_api() as (c, s):
+        registrar(c, "A", "Jean")
+        r = enviar(c, "A", "Hola jurado")
+        assert r.json()["nombre"] == "Jean"                    # el celular sabe con qué nombre se guardó
+        r = enviar(c, "B", "ok")                               # B no dio nombre
+        assert r.json()["nombre"] == "Anónimo"
+        esperar(lambda: len(c.get("/api/estado").json()["historial"]) == 2, timeout=30)
+        hist = c.get("/api/estado").json()["historial"]
+        assert [(m["nombre"], m["texto"]) for m in hist] == [("Anónimo", "ok"), ("Jean", "hola jurado")]
+
+
+def test_el_nombre_conserva_sus_mayusculas(abrir_api):
+    with abrir_api() as (c, s):
+        for nombre in ("Jean", "jean", "JEAN", "María José"):
+            assert registrar(c, "A", nombre).json()["nombre"] == nombre
+        assert enviar(c, "A", "hola").json()["nombre"] == "María José"
 
 
 # ---------------------------------------------------------------- bloqueo
@@ -9834,6 +13691,205 @@ def test_participantes_no_escriben_en_disco(ruta):
     nombres = {n.id for n in ast.walk(arbol) if isinstance(n, ast.Name)} | \
               {n.attr for n in ast.walk(arbol) if isinstance(n, ast.Attribute)}
     assert not nombres & {"open", "write_text", "write_bytes", "dump", "Path", "sqlite3", "shelve"}
+```
+
+## `tests/test_protocolo.py`
+
+```python
+"""Protocolo de prueba de letras: análisis, máquina de estados, guardado y API (sin Kinect)."""
+import csv
+import threading
+import time
+
+import pytest
+
+from conftest import admin, esperar
+from detector_falso import DetectorFalso
+
+from pgc.adaptadores import experimentos
+from pgc.aplicacion.protocolo import ProtocoloLetras, ServicioProtocolo
+from pgc.dominio import experimento as ex
+
+PC = "127.0.0.1"
+TUNEL = {"CF-Connecting-IP": "181.50.1.2"}
+
+
+def intento(letra, reconocida, **kw):
+    base = {"letra": letra, "intento": 1, "reconocida": reconocida, "tiempo_s": 1.2 if reconocida else None,
+            "mano_pct": 90.0, "prediccion_frecuente": reconocida or letra, "margen_medio": 0.9,
+            "estable_max_s": 1.0, "cambios": 0, "sin_letra_pct": 0.0, "motivo_frecuente": "Confirmando…"}
+    return {**base, **kw}
+
+
+# ---------------------------------------------------------------- análisis
+def test_resumen_y_matriz():
+    datos = [intento("a", "a"), intento("a", "a"), intento("a", "e"), intento("a", None),
+             intento("b", "b")]
+    por = {f["letra"]: f for f in ex.resumen_por_letra(datos)}
+    assert por["a"] == {"letra": "a", "intentos": 4, "aciertos": 2, "confusiones": {"e": 1}, "no_detectadas": 1,
+                        "exactitud_pct": 50.0, "tiempo_medio_s": 1.2}
+    filas, columnas, matriz = ex.matriz_confusion(datos, ["a", "b"])
+    assert columnas == ["a", "b", "e", ex.NINGUNA]
+    assert matriz == [[2, 0, 1, 1], [0, 1, 0, 0]]
+    inf = ex.informe(datos)
+    assert inf["exactitud_pct"] == 60.0 and inf["fallan"] == ["a"] and "b" not in inf["causas"]
+
+
+@pytest.mark.parametrize("cambios, tipo", [
+    ({"mano_pct": 20.0}, "mano"),
+    ({"prediccion_frecuente": "sin_letra", "sin_letra_pct": 80.0}, "sin_letra"),
+    ({"reconocida": "e"}, "parecida"),
+    ({"cambios": 6}, "inestable"),
+    ({"estable_max_s": 0.4}, "tiempo"),
+    ({"margen_medio": 0.1}, "margen"),
+])
+def test_causa_probable(cambios, tipo):
+    fallo = intento("a", None, **{k: v for k, v in cambios.items() if k != "reconocida"})
+    if "reconocida" in cambios:
+        fallo = intento("a", cambios["reconocida"])
+    assert ex.causa_probable("a", [fallo, intento("a", "a")])[0] == tipo
+    assert ex.causa_probable("a", [intento("a", "a")]) is None
+
+
+# ---------------------------------------------------------------- máquina de estados
+def diag(t, manos=0, pred=None, texto="", armado=True, estable=0.0):
+    return {"t": t, "manos": manos, "prediccion": pred, "segunda": None, "margen": 0.5 if pred else None,
+            "estable_s": estable, "confirmaciones": 0, "armado": armado, "texto": texto, "motivo": "x"}
+
+
+def test_acierto_confusion_y_no_detectada():
+    p = ProtocoloLetras(["a", "b", "c"], repeticiones=1, tiempo_max=3.0)
+    assert p.iniciar(0.0) == ["iniciar", "limpiar"]
+    p.muestra(diag(1, 0), 0.5)                                     # sin mano: el tiempo aún no corre
+    p.muestra(diag(2, 1, "a"), 1.0)                                # aparece la mano
+    p.muestra(diag(3, 1, "a", estable=0.8), 1.8)
+    p.muestra(diag(4, 1, "a", texto="A", armado=False), 2.0)       # su lógica confirmó A
+    assert p.fase == "retirar" and p.intentos[0]["reconocida"] == "a" and p.intentos[0]["tiempo_s"] == 1.0
+    assert p.muestra(diag(5, 0, None, texto="A", armado=False), 2.2) == []      # aún no está lista
+    assert p.muestra(diag(6, 0, None, texto="A", armado=True), 2.8) == ["limpiar"]
+    assert p.estado()["letra"] == "b"
+    p.muestra(diag(7, 1, "e", texto=""), 3.0)
+    p.muestra(diag(8, 1, "e", texto="E", armado=False), 3.9)       # confundida con E
+    p.muestra(diag(9, 0, texto="E"), 4.2)                          # retira la mano
+    p.muestra(diag(10, 1, "sin_letra", texto=""), 4.5)
+    p.muestra(diag(11, 1, "sin_letra", texto=""), 7.6)             # pasan 3 s: no detectada
+    assert [(i["letra"], i["reconocida"]) for i in p.intentos] == [("a", "a"), ("b", "e"), ("c", None)]
+    assert p.intentos[2]["sin_letra_pct"] == 100.0
+    p.muestra(diag(12, 0), 7.8)
+    assert p.fase == "terminado"
+
+
+def test_tras_limpiar_no_cuenta_el_texto_viejo():
+    """El diagnóstico se actualiza con cada imagen: justo tras limpiar puede traer aún la letra anterior."""
+    p = ProtocoloLetras(["a"], repeticiones=2, tiempo_max=5.0)
+    p.iniciar(0.0)
+    p.muestra(diag(1, 1, "a", texto="A", armado=False), 1.0)       # intento 1: A
+    p.muestra(diag(2, 0, texto="A", armado=True), 1.5)             # retirar → limpiar, intento 2
+    assert p.estado()["intento"] == 2
+    p.muestra(diag(2, 0, texto="A", armado=True), 1.6)             # MISMA imagen (t=2), aún con "A": no cuenta
+    assert p.fase == "pedir"
+    p.muestra(diag(3, 1, "a", texto=""), 1.7)                      # imagen nueva, ya limpio
+    p.muestra(diag(4, 1, "a", texto="A", armado=False), 2.6)       # ahora sí: A otra vez
+    assert [i["reconocida"] for i in p.intentos] == ["a", "a"]
+
+
+def test_el_servicio_corre_y_guarda():
+    ordenes, guardado = [], []
+    muestras = iter([diag(1, 1, "a"), diag(2, 1, "a", texto="A", armado=False), diag(3, 0, texto="A")]
+                    + [diag(4, 0)] * 50)
+
+    class Senas:
+        def diagnostico(self):
+            return next(muestras)
+
+        def controlar(self, accion):
+            ordenes.append(accion)
+
+    s = ServicioProtocolo(Senas(), guardar=lambda p, info: (guardado.append(p) or "experimentos/x", {"ok": 1}),
+                          periodo=0.001)
+    s.iniciar(["a"], repeticiones=1)
+    esperar(lambda: s.estado()["fase"] == "terminado" and s.carpeta)
+    assert ordenes[:2] == ["iniciar", "limpiar"] and guardado and s.estado()["carpeta"] == "experimentos/x"
+
+
+# ---------------------------------------------------------------- guardado
+def test_guardar_archivos(tmp_path):
+    p = ProtocoloLetras(["a", "b"], repeticiones=2)
+    p.intentos = [intento("a", "a"), intento("a", "e"), intento("b", None, mano_pct=10.0), intento("b", "b")]
+    p.muestras = [{"t": 0.1, "fase": "pedir", "letra": "a", "intento": 1, "manos": 1, "prediccion": "a",
+                   "segunda": "e", "margen": 0.5, "estable_s": 0.3, "confirmaciones": 2, "motivo": "x", "texto": ""}]
+    carpeta, informe = experimentos.guardar(p, {}, carpeta_base=tmp_path)
+    archivos = {f.name for f in next(tmp_path.iterdir()).iterdir()}
+    assert {"intentos.csv", "muestras.csv", "resumen_por_letra.csv", "matriz_confusion.csv", "matriz_confusion.png",
+            "aciertos_por_letra.png", "tiempos_por_letra.png", "informe.md"} <= archivos
+    with open(next(tmp_path.iterdir()) / "intentos.csv", encoding="utf-8-sig") as f:
+        filas = list(csv.reader(f, delimiter=";"))
+    assert filas[0][:4] == ["letra", "intento", "resultado", "reconocida"] and filas[1][4] == "1,2"   # coma decimal
+    assert informe["exactitud_pct"] == 50.0 and informe["causas"]["b"]["tipo"] == "mano"
+
+
+# ---------------------------------------------------------------- API (detector falso)
+@pytest.fixture
+def detector():
+    d = DetectorFalso()
+    d.mantener_camara()
+    yield d
+    d.cerrar()
+
+
+def test_diagnostico_solo_en_el_pc(abrir_api, detector):
+    with abrir_api(PC, reconocedor="kinect", kinect_url=detector.url, kinect_intervalo=0.05) as (c, s):
+        detector.mostrar("l")
+        r = c.get("/api/kinect/diagnostico", headers=admin(c))
+        assert r.status_code == 200 and r.json()["prediccion"] == "l"
+        assert c.get("/api/kinect/diagnostico").status_code == 403
+        assert c.get("/api/kinect/diagnostico", headers={**admin(c), **TUNEL}).status_code == 403
+        assert "pgc-admin" in c.get("/diagnostico").text
+        detector.con_diagnostico = False                            # su servidor original no lo tiene
+        assert c.get("/api/kinect/diagnostico", headers=admin(c)).status_code == 503
+
+
+def test_protocolo_completo_por_la_api(abrir_api, detector, monkeypatch, tmp_path):
+    monkeypatch.setattr(experimentos, "CARPETA", tmp_path)
+    with abrir_api(PC, reconocedor="kinect", kinect_url=detector.url, kinect_intervalo=0.05) as (c, s):
+        s.protocolo.periodo = 0.02
+        esperar(lambda: s.senas.reconocedor.camara)
+        assert c.post("/api/kinect/protocolo/iniciar", json={"letras": "a x"}).status_code == 403   # sin token
+        assert c.post("/api/kinect/protocolo/iniciar", json={"letras": "a ñ"}, headers=admin(c)).status_code == 400
+        r = c.post("/api/kinect/protocolo/iniciar", json={"letras": "a b", "repeticiones": 2, "tiempo_max": 2},
+                   headers=admin(c))
+        assert r.status_code == 200 and r.json()["total"] == 4
+
+        def persona():                                              # hace lo que le piden; la B la confunde con D
+            hechas = 0
+            while hechas < 4:
+                e = c.get("/api/kinect/protocolo", headers=admin(c)).json()
+                if e["fase"] == "pedir" and e["hecho"] == hechas:
+                    letra = "d" if e["letra"] == "b" and e["intento"] == 2 else e["letra"]
+                    detector.mostrar(letra)
+                    time.sleep(0.15)
+                    detector.reconocer(letra)
+                    esperar(lambda: c.get("/api/kinect/protocolo", headers=admin(c)).json()["hecho"] > hechas)
+                    detector.retirar()
+                    hechas += 1
+                time.sleep(0.03)
+        hilo = threading.Thread(target=persona, daemon=True)
+        hilo.start()
+        esperar(lambda: c.get("/api/kinect/protocolo", headers=admin(c)).json().get("carpeta"), timeout=20)
+        e = c.get("/api/kinect/protocolo", headers=admin(c)).json()
+        assert e["informe"]["exactitud_pct"] == 75.0
+        assert e["informe"]["por_letra"][1]["confusiones"] == {"d": 1}
+        carpeta = next(tmp_path.iterdir())
+        assert (carpeta / "matriz_confusion.png").exists() and (carpeta / "informe.md").exists()
+
+
+def test_eco_desde_el_celular_con_turno(abrir_api, detector):
+    with abrir_api(reconocedor="kinect", kinect_url=detector.url, kinect_intervalo=0.05) as (c, s):
+        assert c.post("/api/kinect/eco", json={"activo": True, "cliente": "A"}).status_code == 403   # sin turno
+        c.post("/api/kinect/turno", json={"cliente": "A"})
+        assert c.post("/api/kinect/eco", json={"activo": True, "cliente": "A"}).json() == {"eco": True}
+        assert c.post("/api/kinect/eco", json={"activo": False, "cliente": "B"}).status_code == 403  # espectador
+        assert s.eco is True
 ```
 
 ## `tests/test_puertos.py`
@@ -10406,7 +14462,8 @@ def test_el_sistema_inicia_y_detiene_el_reconocedor(abrir_api):
         assert s.senas.reconocedor.estado == "sin_persona"
         s.senas.reconocedor.simular("ok", esperar=True)
         esperar(lambda: s.senas.frases == ["ok"])
-        assert c.get("/api/estado").json()["kinect"] == {"estado": "pendiente"}    # la pantalla aún no cambia
+        k = c.get("/api/estado").json()["kinect"]                                # ahora la pantalla lo ve
+        assert k["estado"] == "sin_persona" and k["frases"] == ["ok"] and k["controles"] is False
     assert s.senas.reconocedor.estado == "apagado"
 ```
 
@@ -10541,6 +14598,271 @@ if __name__ == "__main__":
     main()
 ```
 
+## `scripts/diagnostico_kinect.py`
+
+```python
+"""Diagnóstico del Kinect, paso a paso, antes de la demo (lo lanza diagnostico_kinect.bat).
+
+Revisa, de lo más simple a lo más completo, y dice qué hacer si algo falla:
+  1. Windows: .NET 4.8, Kinect SDK 1.8 y el Kinect conectado (Administrador de dispositivos)
+  2. Archivos: entorno del detector, versiones, modelo SVM y app del Kinect compilada
+  3. Puertos: 8000 (plataforma) y 8765 (detector)
+  4. En vivo: arranca el detector y la app del Kinect (como iniciar.bat), mide cuántas imágenes
+     por segundo llegan y los cierra al final. Si la plataforma ya está corriendo, solo mide.
+No cambia nada: no inicia el deletreo, no graba y no escribe dentro de integracion_kinect/.
+El informe queda en registros\\diagnostico_kinect.txt.
+
+Uso:  py -3.11 scripts/diagnostico_kinect.py [--sin-capturador] [--segundos 10]
+"""
+import argparse
+import hashlib
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from dataclasses import replace
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(RAIZ))
+
+from pgc import config  # noqa: E402
+from pgc.adaptadores.kinect import procesos  # noqa: E402
+from pgc.adaptadores.kinect.procesos import DETECTOR, LanzadorKinect  # noqa: E402
+
+try:
+    sys.stdout.reconfigure(errors="replace")
+except AttributeError:
+    pass
+
+lineas, resumen = [], {"OK": 0, "AVISO": 0, "FALLA": 0}
+
+
+def informar(nivel, texto, solucion=""):
+    resumen[nivel] += 1
+    linea = f"  [{nivel:5}] {texto}" + (f"\n          -> {solucion}" if solucion and nivel != "OK" else "")
+    print(linea, flush=True)
+    lineas.append(linea)
+
+
+def titulo(texto):
+    print(f"\n{texto}", flush=True)
+    lineas.append(f"\n{texto}")
+
+
+def puerto_abierto(puerto):
+    with socket.socket() as s:
+        s.settimeout(0.4)
+        return s.connect_ex(("127.0.0.1", puerto)) == 0
+
+
+def obtener(url, timeout=2.0):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.status, r.headers.get("Content-Type", ""), r.read()
+    except urllib.error.HTTPError as ex:
+        return ex.code, "", ex.read()
+    except (urllib.error.URLError, OSError):
+        return None, "", b""
+
+
+def powershell(comando):
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", comando], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=60)
+    return r.stdout.strip()
+
+
+# ---------------------------------------------------------------- 1. Windows
+def revisar_windows():
+    titulo("1. Windows: .NET, Kinect SDK y el Kinect conectado")
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full") as k:
+            release = winreg.QueryValueEx(k, "Release")[0]
+        if release >= 528040:
+            informar("OK", f".NET Framework 4.8 o superior (Release {release})")
+        else:
+            informar("FALLA", f".NET Framework anterior a 4.8 (Release {release})",
+                     "Instala .NET Framework 4.8 Runtime (la app del Kinect lo necesita)")
+    except OSError:
+        informar("FALLA", "No se encontró .NET Framework 4.x", "Instala .NET Framework 4.8 Runtime")
+
+    sdk = os.environ.get("KINECTSDK10_DIR") or str(Path(os.environ.get("ProgramFiles", "")) / "Microsoft SDKs/Kinect/v1.8")
+    if (Path(sdk) / "Assemblies" / "Microsoft.Kinect.dll").is_file():
+        informar("OK", f"Kinect for Windows SDK 1.8 instalado ({sdk})")
+    else:
+        informar("FALLA", "No está el Kinect for Windows SDK 1.8 (trae los controladores)",
+                 "Instala KinectSDK-v1.8-Setup.exe y reinicia")
+
+    salida = powershell("Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | "
+                        "Where-Object { $_.FriendlyName -match 'Kinect|Xbox NUI' } | "
+                        "Select-Object Status, FriendlyName | ConvertTo-Json -Compress")
+    dispositivos = json.loads(salida) if salida else []
+    dispositivos = [dispositivos] if isinstance(dispositivos, dict) else dispositivos
+    if not dispositivos:
+        informar("FALLA", "Windows no ve ningún Kinect conectado",
+                 "Revisa el adaptador de corriente del Kinect (luz verde), usa un puerto USB 2.0/3.0 directo "
+                 "del portátil (sin hub) y espera ~30 s; en el Administrador de dispositivos debe aparecer "
+                 "'Kinect for Windows'")
+    else:
+        for d in dispositivos:
+            nombre, estado = d.get("FriendlyName"), d.get("Status")
+            if "Xbox NUI" in (nombre or ""):
+                informar("FALLA", f"{nombre}: Windows lo ve sin el controlador del SDK",
+                         "Reinstala el Kinect SDK 1.8 con el Kinect desconectado y vuelve a conectarlo")
+            elif estado == "OK":
+                informar("OK", f"{nombre}")
+            else:
+                informar("FALLA", f"{nombre}: estado {estado}",
+                         "Desconecta y conecta el Kinect; si sigue, reinstala el controlador desde el Administrador de dispositivos")
+
+
+# ---------------------------------------------------------------- 2. Archivos
+def revisar_archivos(lanzador):
+    titulo("2. Archivos: entorno del detector, modelo y app del Kinect")
+    python = lanzador.buscar_python()
+    if python is None:
+        informar("FALLA", "No está el entorno del detector (.venv-detector)", "Doble clic en instalar_detector.bat")
+    else:
+        prueba = (
+            "import warnings, joblib, mediapipe, sklearn, cv2, numpy\n"
+            "with warnings.catch_warnings(record=True) as w:\n"
+            "    warnings.simplefilter('always')\n"
+            "    m = joblib.load('modelo_estaticas.joblib')\n"
+            "print(mediapipe.__version__, sklearn.__version__, cv2.__version__, numpy.__version__, "
+            "len(m['categorias']), len(w))\n")
+        r = subprocess.run([str(python), "-B", "-c", prueba], cwd=DETECTOR, capture_output=True, text=True,
+                           timeout=180, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        if r.returncode != 0:
+            informar("FALLA", "El entorno del detector no carga el modelo: " + (r.stderr.strip().splitlines() or ["?"])[-1],
+                     "Vuelve a ejecutar instalar_detector.bat")
+        else:
+            mp, skl, cv, npv, categorias, avisos = r.stdout.split()
+            informar("OK", f"Entorno del detector: mediapipe {mp}, scikit-learn {skl}, OpenCV {cv}, numpy {npv}")
+            if skl != "1.5.2" or avisos != "0":
+                informar("AVISO", f"El modelo se cargó con scikit-learn {skl} y {avisos} aviso(s) de versión",
+                         "El modelo se guardó con scikit-learn 1.5.2: usa esa versión (instalar_detector.bat)")
+            else:
+                informar("OK", f"modelo_estaticas.joblib carga sin avisos ({categorias} categorías)")
+
+    exe = lanzador.buscar_exe()
+    if exe is None:
+        informar("FALLA", "No está la app del Kinect compilada (LSCKinectFramework.exe)",
+                 "Copia la carpeta bin\\Debug de Camila a integracion_kinect\\capturador\\LSCKinectFramework\\bin\\Debug "
+                 "o pon su ruta en PGC_KINECT_EXE")
+    else:
+        fecha = time.strftime("%d/%m/%Y %H:%M", time.localtime(exe.stat().st_mtime))
+        informar("OK", f"App del Kinect: {exe.relative_to(RAIZ) if RAIZ in exe.parents else exe} (compilada el {fecha})")
+        if not (exe.parent / "Microsoft.Kinect.dll").is_file():
+            informar("AVISO", "No está Microsoft.Kinect.dll junto al .exe",
+                     "Copia la carpeta bin\\Debug completa (la DLL también viene con el SDK 1.8)")
+
+
+# ---------------------------------------------------------------- 3. Puertos
+def revisar_puertos(cfg):
+    titulo("3. Puertos")
+    plataforma = puerto_abierto(cfg.puerto_web)
+    detector = puerto_abierto(8765)
+    informar("OK" if not plataforma else "AVISO",
+             f"Puerto {cfg.puerto_web} (plataforma): {'libre' if not plataforma else 'en uso: la plataforma ya está corriendo'}",
+             "Si no es la plataforma, cierra el programa que lo usa")
+    informar("OK" if not detector else "AVISO",
+             f"Puerto 8765 (detector): {'libre' if not detector else 'en uso: ya hay un detector corriendo'}",
+             "Se medirá ese detector; si no responde, ciérralo desde el Administrador de tareas (python.exe)")
+    return plataforma, detector
+
+
+# ---------------------------------------------------------------- 4. En vivo
+def medir_en_vivo(cfg, lanzador, segundos, sin_capturador):
+    titulo("4. En vivo: detector y app del Kinect")
+    propio = not puerto_abierto(8765)
+    if propio:
+        print("  Arrancando el detector" + ("" if sin_capturador else " y la app del Kinect (minimizada)") + "...", flush=True)
+        lanzador.cfg = replace(cfg, **{"kinect_lanzar": True, "reconocedor": "kinect",
+                                        "kinect_capturador": "no" if sin_capturador else cfg.kinect_capturador})
+        lanzador.iniciar()
+    try:
+        limite = time.time() + 60
+        while time.time() < limite and obtener("http://127.0.0.1:8765/spell/status")[0] != 200:
+            time.sleep(0.5)
+        codigo, _, cuerpo = obtener("http://127.0.0.1:8765/spell/status")
+        if codigo != 200:
+            informar("FALLA", "El detector no responde en 127.0.0.1:8765", "Revisa registros\\detector.log")
+            return
+        texto = cuerpo.decode("utf-8", "replace").replace("\r", "").replace("\n", " | ")
+        informar("OK", f"Detector responde: {texto[:90]}")
+
+        # Imágenes por segundo: cuántas imágenes distintas entrega /preview.jpg
+        espera = 20 if propio and not sin_capturador else 3
+        print(f"  Esperando imágenes de la cámara (hasta {espera} s)...", flush=True)
+        limite = time.time() + espera
+        while time.time() < limite and obtener("http://127.0.0.1:8765/preview.jpg")[0] != 200:
+            time.sleep(0.5)
+        print(f"  Midiendo durante {segundos} s; párate frente al Kinect y muestra una mano...", flush=True)
+        vistas, ultima, t0 = set(), None, time.time()
+        while time.time() - t0 < segundos:
+            codigo, tipo, cuerpo = obtener("http://127.0.0.1:8765/preview.jpg", timeout=1.0)
+            if codigo == 200 and tipo.startswith("image/jpeg"):
+                huella = hashlib.md5(cuerpo).hexdigest()
+                if huella != ultima:
+                    vistas.add(huella)
+                    ultima = huella
+            time.sleep(0.04)
+        fps = len(vistas) / segundos
+        if fps == 0 and sin_capturador:
+            informar("AVISO", "No llegan imágenes (normal con --sin-capturador: no se abrió la app del Kinect)",
+                     "Repite sin --sin-capturador, con el Kinect conectado")
+        elif fps == 0:
+            informar("FALLA", "No llegan imágenes al detector",
+                     "Abre la app del Kinect (está minimizada en la barra de tareas): debe decir 'Kinect conectado'. "
+                     "Si dice 'No se detectó ningún Kinect', revisa el paso 1")
+        elif fps < 3:
+            informar("AVISO", f"Llegan pocas imágenes: {fps:.1f} por segundo (lo normal es 12-18 con la app del 27/10)",
+                     "Cierra programas pesados; revisa que el portátil esté conectado a la corriente")
+        else:
+            informar("OK", f"Llegan {fps:.1f} imágenes por segundo al detector (lo normal es 12-18 con la app del 27/10)")
+    finally:
+        if propio:
+            lanzador.detener()
+            time.sleep(1)
+            informar("OK" if not puerto_abierto(8765) else "AVISO", "Detector y app del Kinect cerrados al terminar",
+                     "Ciérralos desde el Administrador de tareas")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Diagnóstico del Kinect")
+    ap.add_argument("--sin-capturador", action="store_true", help="no abrir la app del Kinect (solo el detector)")
+    ap.add_argument("--segundos", type=int, default=10, help="cuánto medir las imágenes por segundo")
+    args = ap.parse_args()
+    print("Diagnóstico del Kinect - " + time.strftime("%d/%m/%Y %H:%M"))
+    try:
+        cfg = config.cargar([])
+    except config.ErrorConfig as ex:
+        print(f"Error en el .env: {ex}")
+        return 2
+    procesos.REGISTROS.mkdir(exist_ok=True)
+    lanzador = LanzadorKinect(cfg, lambda m: print("  " + m, flush=True))
+    revisar_windows()
+    revisar_archivos(lanzador)
+    revisar_puertos(cfg)
+    medir_en_vivo(cfg, lanzador, args.segundos, args.sin_capturador)
+    final = f"\nRESULTADO: {resumen['OK']} OK, {resumen['AVISO']} avisos, {resumen['FALLA']} fallas"
+    print(final)
+    informe = procesos.REGISTROS / "diagnostico_kinect.txt"
+    informe.write_text("Diagnóstico del Kinect - " + time.strftime("%d/%m/%Y %H:%M") + "\n" + "\n".join(lineas) + final + "\n",
+                       encoding="utf-8")
+    print(f"Informe guardado en {informe.relative_to(RAIZ)}")
+    return 1 if resumen["FALLA"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
 ## `scripts/generar_codigo_completo.py`
 
 ````python
@@ -10623,7 +14945,7 @@ from pathlib import Path
 import websockets
 
 RAIZ = Path(__file__).resolve().parent.parent
-PUERTO = 8765
+PUERTO = 8768                     # no el 8765: ese es el del detector del Kinect
 BASE = f"http://127.0.0.1:{PUERTO}"
 fallos = []
 
@@ -10686,7 +15008,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--entrada", choices=["servidor", "modulo"], default="servidor")
     args = ap.parse_args()
-    entorno = dict(os.environ)
+    # Plataforma simulada: sin el detector real del Kinect ni la voz de salida (los prueba prueba_servicios_reales.py)
+    entorno = {**os.environ, "PGC_RECONOCEDOR": "simulado", "PGC_VOZ_SALIDA": "false", "PGC_KINECT_LANZAR": "false"}
     opciones = ["--simular", "--sin-voz", "--sin-tunel", "--no-abrir", "--puerto-web", str(PUERTO)]
     comando = [sys.executable, "servidor.py", *opciones] if args.entrada == "servidor" else [sys.executable, "-m", "pgc", *opciones]
     print("Arrancando:", " ".join(comando[1:]))
@@ -10766,6 +15089,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -10785,6 +15109,21 @@ PUERTO_CDP = 9334
 ESPIA_CSP = ("window.__csp = []; document.addEventListener('securitypolicyviolation', "
              "e => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI));")
 fallos = []
+
+
+def cerrar_edge(proc, perfil=None):
+    """Cierra Edge y todos sus procesos.
+
+    terminate() no basta: el msedge.exe que se lanza le pasa el control a OTRO proceso principal y
+    termina, y ese queda vivo con sus renderizadores. Por eso se cierran también, con su árbol, los
+    procesos que usan el perfil temporal de esta prueba (es único por ejecución).
+    """
+    subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+    if perfil:
+        consulta = (f"Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | "
+                    f"Where-Object {{ $_.CommandLine -like '*{Path(perfil).name}*' }} | "
+                    "ForEach-Object { taskkill /PID $_.ProcessId /T /F | Out-Null }")
+        subprocess.run(["powershell", "-NoProfile", "-Command", consulta], capture_output=True)
 
 
 def comprobar(condicion, descripcion):
@@ -10936,7 +15275,8 @@ async def probar(url_tunel, capturas):
     print("\n[Otro equipo por el túnel] /pantalla")
     await pc.ir(url_tunel + "/pantalla", espera=6)
     comprobar(await pc.js("document.querySelector('meta[name=pgc-admin]').content") == "", "sin token por el túnel")
-    comprobar(await pc.js("document.querySelector('.controles').style.display") == "none", "sin botones de control")
+    comprobar(await pc.js("[...document.querySelectorAll('.controles button')].every(b => !b.getClientRects().length)"),
+              "sin botones de control (ni de la mano ni del Kinect)")
     comprobar(await pc.esperar("!document.querySelector('#desconectado').classList.contains('si')", 20),
               "la pantalla por el túnel también conecta el WebSocket")
     comprobar(await pc.js("window.__csp.length") == 0, "sin violaciones de CSP por el túnel")
@@ -10949,9 +15289,11 @@ def main():
     args = ap.parse_args()
     Pestana.tema = args.tema
     perfil = Path(tempfile.mkdtemp(prefix="pgc_edge_"))
+    # Plataforma simulada: sin el detector real del Kinect ni la voz de salida
+    entorno = {**os.environ, "PGC_RECONOCEDOR": "simulado", "PGC_VOZ_SALIDA": "false", "PGC_KINECT_LANZAR": "false"}
     comando = [sys.executable, "-m", "pgc", "--simular", "--sin-voz", "--no-abrir", "--puerto-web", str(PUERTO)]
     with tempfile.TemporaryFile() as salida:
-        servidor = subprocess.Popen(comando, cwd=RAIZ, stdout=salida, stderr=subprocess.STDOUT)
+        servidor = subprocess.Popen(comando, cwd=RAIZ, stdout=salida, stderr=subprocess.STDOUT, env=entorno)
         edge = subprocess.Popen([EDGE, "--headless=new", f"--remote-debugging-port={PUERTO_CDP}",
                                  f"--user-data-dir={perfil}", "--no-first-run", "--hide-scrollbars", "about:blank"])
         try:
@@ -10969,7 +15311,7 @@ def main():
                 time.sleep(4)                           # el DNS de trycloudflare tarda un poco
                 asyncio.run(probar(url, args.capturas))
         finally:
-            edge.terminate()
+            cerrar_edge(edge, perfil)
             servidor.terminate()
             try:
                 servidor.wait(15)
@@ -10988,10 +15330,12 @@ if __name__ == "__main__":
 ## `scripts/prueba_servicios_reales.py`
 
 ```python
-"""Prueba con servicios reales: Whisper (GPU o CPU) y túnel HTTPS de Cloudflare.
+"""Prueba con servicios reales: Whisper (GPU o CPU), voz de salida (Coqui), detector del Kinect y túnel HTTPS.
 
 Necesita internet. La mano va simulada. Genera un audio en español con la voz de
-Windows (System.Speech) y lo transcribe en local y por el túnel.
+Windows (System.Speech) y lo transcribe en local y por el túnel. Comprueba que
+Whisper, Coqui y el detector real (si está .venv-detector) conviven en el mismo
+arranque, y que la cámara del Kinect nunca sale por el túnel.
 
 Uso:  py -3.11 scripts/prueba_servicios_reales.py
 """
@@ -11084,6 +15428,10 @@ def main():
             d = esperar_estado(lambda d: d["voz"]["estado"] in ("listo", "error"), 180, "Whisper cargó")
             if d:
                 comprobar(d["voz"]["estado"] == "listo", f"Whisper listo en {d['voz']['dispositivo']}")
+            d = esperar_estado(lambda d: d["voz_salida"]["estado"] in ("listo", "error"), 240, "la voz de salida cargó")
+            comprobar(bool(d) and d["voz_salida"]["estado"] == "listo", "voz de salida (Coqui VITS) lista")
+            d = esperar_estado(lambda d: d["kinect"]["conectado"], 60, "el detector del Kinect arrancó")
+            comprobar(bool(d), "detector del Kinect arrancado por la plataforma (necesita .venv-detector)")
             t0 = time.time()
             codigo, cuerpo = transcribir(LOCAL, wav)
             comprobar(codigo == 200 and "jurado" in cuerpo.get("texto", "").lower(),
@@ -11103,6 +15451,8 @@ def main():
                 comprobar(inicial.get("tipo") == "estado", "WebSocket seguro (wss) por el túnel")
                 r = reintentar(lambda: httpx.post(url + "/api/mano/saltar", timeout=20))
                 comprobar(r.status_code == 403, "saltar por el túnel → 403")
+                r = reintentar(lambda: httpx.get(url + "/api/kinect/imagen", timeout=20))
+                comprobar(r.status_code == 403, "la cámara del Kinect por el túnel → 403")
         finally:
             proceso.terminate()
             try:
@@ -11111,8 +15461,8 @@ def main():
                 proceso.kill()
             salida.seek(0)
             registro = salida.read().decode("utf-8", errors="replace")
-            print("\n--- log del servidor (voz y túnel) ---")
-            print("\n".join(l for l in registro.splitlines() if "[voz]" in l or "[tunel]" in l))
+            print("\n--- log del servidor (voz, túnel y Kinect) ---")
+            print("\n".join(l for l in registro.splitlines() if "[voz]" in l or "[tunel]" in l or "[kinect]" in l))
     print("\nRESULTADO:", "TODO PASA" if not fallos else f"{len(fallos)} FALLA(N)")
     return 1 if fallos else 0
 

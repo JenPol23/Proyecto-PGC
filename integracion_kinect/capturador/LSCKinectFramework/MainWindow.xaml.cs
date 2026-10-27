@@ -140,7 +140,7 @@ namespace LSCKinectFramework
                 }
 
                 siguienteFrame =
-                    DateTime.UtcNow.AddMilliseconds(100);
+                    DateTime.UtcNow.AddMilliseconds(50);
 
                 BitmapSource original = BitmapSource.Create(
                     ancho,

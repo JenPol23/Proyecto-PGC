@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,21 @@ PUERTO_CDP = 9334
 ESPIA_CSP = ("window.__csp = []; document.addEventListener('securitypolicyviolation', "
              "e => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI));")
 fallos = []
+
+
+def cerrar_edge(proc, perfil=None):
+    """Cierra Edge y todos sus procesos.
+
+    terminate() no basta: el msedge.exe que se lanza le pasa el control a OTRO proceso principal y
+    termina, y ese queda vivo con sus renderizadores. Por eso se cierran también, con su árbol, los
+    procesos que usan el perfil temporal de esta prueba (es único por ejecución).
+    """
+    subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+    if perfil:
+        consulta = (f"Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | "
+                    f"Where-Object {{ $_.CommandLine -like '*{Path(perfil).name}*' }} | "
+                    "ForEach-Object { taskkill /PID $_.ProcessId /T /F | Out-Null }")
+        subprocess.run(["powershell", "-NoProfile", "-Command", consulta], capture_output=True)
 
 
 def comprobar(condicion, descripcion):
@@ -180,7 +196,8 @@ async def probar(url_tunel, capturas):
     print("\n[Otro equipo por el túnel] /pantalla")
     await pc.ir(url_tunel + "/pantalla", espera=6)
     comprobar(await pc.js("document.querySelector('meta[name=pgc-admin]').content") == "", "sin token por el túnel")
-    comprobar(await pc.js("document.querySelector('.controles').style.display") == "none", "sin botones de control")
+    comprobar(await pc.js("[...document.querySelectorAll('.controles button')].every(b => !b.getClientRects().length)"),
+              "sin botones de control (ni de la mano ni del Kinect)")
     comprobar(await pc.esperar("!document.querySelector('#desconectado').classList.contains('si')", 20),
               "la pantalla por el túnel también conecta el WebSocket")
     comprobar(await pc.js("window.__csp.length") == 0, "sin violaciones de CSP por el túnel")
@@ -193,9 +210,11 @@ def main():
     args = ap.parse_args()
     Pestana.tema = args.tema
     perfil = Path(tempfile.mkdtemp(prefix="pgc_edge_"))
+    # Plataforma simulada: sin el detector real del Kinect ni la voz de salida
+    entorno = {**os.environ, "PGC_RECONOCEDOR": "simulado", "PGC_VOZ_SALIDA": "false", "PGC_KINECT_LANZAR": "false"}
     comando = [sys.executable, "-m", "pgc", "--simular", "--sin-voz", "--no-abrir", "--puerto-web", str(PUERTO)]
     with tempfile.TemporaryFile() as salida:
-        servidor = subprocess.Popen(comando, cwd=RAIZ, stdout=salida, stderr=subprocess.STDOUT)
+        servidor = subprocess.Popen(comando, cwd=RAIZ, stdout=salida, stderr=subprocess.STDOUT, env=entorno)
         edge = subprocess.Popen([EDGE, "--headless=new", f"--remote-debugging-port={PUERTO_CDP}",
                                  f"--user-data-dir={perfil}", "--no-first-run", "--hide-scrollbars", "about:blank"])
         try:
@@ -213,7 +232,7 @@ def main():
                 time.sleep(4)                           # el DNS de trycloudflare tarda un poco
                 asyncio.run(probar(url, args.capturas))
         finally:
-            edge.terminate()
+            cerrar_edge(edge, perfil)
             servidor.terminate()
             try:
                 servidor.wait(15)

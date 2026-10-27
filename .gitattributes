@@ -1,0 +1,2 @@
+# cmd.exe necesita CRLF en los .bat (con LF, goto y las etiquetas pueden fallar)
+*.bat text eol=crlf
