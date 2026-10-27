@@ -16,6 +16,7 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -30,6 +31,44 @@ REGISTROS = RAIZ / "registros"
 PYTHONS = (DETECTOR / ".venv" / "Scripts" / "python.exe", RAIZ / ".venv-detector" / "Scripts" / "python.exe")
 EXES = tuple(CAPTURADOR / "bin" / v / "LSCKinectFramework.exe" for v in ("Release", "Debug"))
 MINIMIZADA = 7                    # SW_SHOWMINNOACTIVE: la ventana C# no tapa el proyector
+ESPERA_DETECTOR = 60.0            # s máximos esperando al detector antes de abrir la app del Kinect
+
+
+def detector_listo(url):
+    """El detector ya responde (/spell/status). Abrir la app antes es mandarle imágenes a nadie."""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/spell/status", timeout=0.5) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
+def minimizar_ventanas(pid):
+    """Minimiza (sin activarlas) las ventanas visibles del proceso. Devuelve [(título, ya_estaba_minimizada)].
+
+    La app se lanza ya minimizada (STARTUPINFO); esto lo confirma y lo corrige si WPF la abrió en grande.
+    """
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    encontradas = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def revisar(hwnd, _):
+        dueno = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(dueno))
+        if dueno.value == pid and u32.IsWindowVisible(hwnd) and u32.GetWindowTextLengthW(hwnd):
+            titulo = ctypes.create_unicode_buffer(256)
+            u32.GetWindowTextW(hwnd, titulo, 256)
+            minimizada = bool(u32.IsIconic(hwnd))
+            if not minimizada:
+                u32.ShowWindow(hwnd, MINIMIZADA)
+            encontradas.append((titulo.value, minimizada))
+        return True
+    u32.EnumWindows(revisar, 0)
+    return encontradas
 
 
 def puerto_ocupado(url):
@@ -40,12 +79,16 @@ def puerto_ocupado(url):
 
 
 class LanzadorKinect:
-    def __init__(self, cfg, log=print, popen=subprocess.Popen, pythons=PYTHONS, exes=EXES):
+    def __init__(self, cfg, log=print, popen=subprocess.Popen, pythons=PYTHONS, exes=EXES,
+                 listo=detector_listo, minimizar=minimizar_ventanas, espera_detector=ESPERA_DETECTOR):
         self.cfg = cfg
         self.log = log
         self._popen = popen
         self._pythons = pythons
         self._exes = exes
+        self._listo = listo
+        self._minimizar = minimizar
+        self._espera_detector = espera_detector
         self._procesos = {}          # nombre → (Popen, job)
         self._parar = threading.Event()
         self._lock = threading.Lock()
@@ -78,7 +121,25 @@ class LanzadorKinect:
                      "integracion_kinect\\detector\\requirements-detector.txt")
         else:
             threading.Thread(target=self._vigilar_detector, daemon=True, name="detector").start()
-        self._lanzar_capturador()
+        # La app del Kinect se abre cuando el detector ya responde (en su propio hilo: el servidor no espera)
+        threading.Thread(target=self._capturador_cuando_este_el_detector, daemon=True, name="capturador").start()
+
+    def _capturador_cuando_este_el_detector(self):
+        if self.cfg.kinect_capturador == "no":
+            return
+        inicio = time.monotonic()
+        while not self._listo(self.cfg.kinect_url):
+            if self._parar.is_set():
+                return
+            if time.monotonic() - inicio > self._espera_detector:
+                self.log(f"[kinect] El detector no respondió en {self._espera_detector:.0f} s; "
+                         "se abre la app del Kinect de todas formas (revisa registros\\detector.log)")
+                break
+            self._parar.wait(0.25)
+        else:
+            self.log(f"[kinect] Detector listo en {time.monotonic() - inicio:.1f} s")
+        if not self._parar.is_set():
+            self._lanzar_capturador()
 
     def _lanzar(self, nombre, comando, cwd, ventana=None):
         info = None
@@ -136,7 +197,19 @@ class LanzadorKinect:
                      "pon su ruta en PGC_KINECT_EXE; para probar sin Kinect: PGC_KINECT_CAPTURADOR=camara_pc")
             return
         self.log(f"[kinect] Abriendo la app del Kinect ({self.exe.name}), minimizada")
-        self._lanzar("capturador", [self.exe], self.exe.parent, ventana=MINIMIZADA)
+        proc = self._lanzar("capturador", [self.exe], self.exe.parent, ventana=MINIMIZADA)
+        self._confirmar_minimizada(proc)
+
+    def _confirmar_minimizada(self, proc, segundos=15.0):
+        """Espera a que aparezca la ventana de la app y se asegura de que quede minimizada."""
+        limite = time.monotonic() + segundos
+        while time.monotonic() < limite and not self._parar.is_set() and proc.poll() is None:
+            ventanas = self._minimizar(proc.pid)
+            if ventanas:
+                if not all(minimizada for _, minimizada in ventanas):
+                    self.log("[kinect] La app del Kinect se abrió en grande: se minimizó")
+                return
+            self._parar.wait(0.2)
 
     # ------------------------------------------------------------ cierre
     def detener(self):

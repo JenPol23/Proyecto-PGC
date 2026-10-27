@@ -1,6 +1,7 @@
 """Arranque del detector y del capturador junto con la plataforma (sin abrir procesos de verdad)."""
 import subprocess
 import threading
+import time
 
 import pytest
 
@@ -15,6 +16,7 @@ class ProcesoFalso:
         self.comando, self.kw = comando, kw
         self.terminado = threading.Event()
         self._handle = 0
+        self.pid = 4242
 
     def wait(self, timeout=None):
         if not self.terminado.wait(timeout if timeout is not None else 30):
@@ -44,7 +46,7 @@ def lanzados(monkeypatch, tmp_path):
     return lista, popen, tmp_path
 
 
-def lanzador(lanzados, python=True, exe=True, **ajustes):
+def lanzador(lanzados, python=True, exe=True, listo=lambda url: True, ventanas=None, **ajustes):
     lista, popen, carpeta = lanzados
     (carpeta / "python.exe").write_bytes(b"")
     (carpeta / "LSCKinectFramework.exe").write_bytes(b"")
@@ -52,7 +54,9 @@ def lanzador(lanzados, python=True, exe=True, **ajustes):
     log = []
     l = LanzadorKinect(cfg, log.append, popen=popen,
                        pythons=[carpeta / ("python.exe" if python else "no-existe.exe")],
-                       exes=[carpeta / ("LSCKinectFramework.exe" if exe else "no-existe.exe")])
+                       exes=[carpeta / ("LSCKinectFramework.exe" if exe else "no-existe.exe")],
+                       listo=listo, minimizar=lambda pid: (ventanas if ventanas is not None else [("Kinect", True)]),
+                       espera_detector=2.0)
     return l, log
 
 
@@ -86,6 +90,7 @@ def test_sin_entorno_ni_exe_avisa_y_no_lanza_nada(lanzados):
     lista, _, _ = lanzados
     l, log = lanzador(lanzados, python=False, exe=False)
     l.iniciar()
+    esperar(lambda: any("No está la app del Kinect" in x for x in log))
     assert lista == []
     texto = " ".join(log)
     assert "Falta el entorno del detector" in texto and "No está la app del Kinect compilada" in texto
@@ -125,3 +130,36 @@ def test_config_del_capturador_se_valida():
         validar(Config(kinect_capturador="webcam"))
     with pytest.raises(ErrorConfig, match="PGC_KINECT_URL"):          # el detector siempre en este PC
         validar(Config(kinect_url="http://192.168.0.5:8765"))
+
+
+def test_la_app_espera_a_que_el_detector_responda(lanzados):
+    """Antes se abrían a la vez y la app mandaba imágenes ~4,5 s a un detector que aún no existía."""
+    lista, _, _ = lanzados
+    listo = threading.Event()
+    l, log = lanzador(lanzados, listo=lambda url: listo.is_set())
+    l.iniciar()
+    esperar(lambda: len(lista) == 1)                     # solo el detector
+    time.sleep(0.6)
+    assert len(lista) == 1 and "server_web_svm.py" in lista[0].comando
+    listo.set()                                          # el detector ya responde
+    esperar(lambda: len(lista) == 2)
+    assert lista[1].comando[0].endswith("LSCKinectFramework.exe")
+    assert any("Detector listo en" in x for x in log)
+    l.detener()
+
+
+def test_si_el_detector_no_responde_la_app_se_abre_igual(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, listo=lambda url: False)          # espera_detector = 2 s en la prueba
+    l.iniciar()
+    esperar(lambda: len(lista) == 2, timeout=6)
+    assert any("no respondió en 2 s" in x for x in log)
+    l.detener()
+
+
+def test_si_la_ventana_se_abre_en_grande_se_minimiza(lanzados):
+    lista, _, _ = lanzados
+    l, log = lanzador(lanzados, kinect_capturador="kinect", ventanas=[("Kinect - Ejemplos de LSC", False)])
+    l.iniciar()
+    esperar(lambda: any("se minimizó" in x for x in log))
+    l.detener()
