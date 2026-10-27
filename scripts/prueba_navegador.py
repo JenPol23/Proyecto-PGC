@@ -32,6 +32,21 @@ ESPIA_CSP = ("window.__csp = []; document.addEventListener('securitypolicyviolat
 fallos = []
 
 
+def cerrar_edge(proc, perfil=None):
+    """Cierra Edge y todos sus procesos.
+
+    terminate() no basta: el msedge.exe que se lanza le pasa el control a OTRO proceso principal y
+    termina, y ese queda vivo con sus renderizadores. Por eso se cierran también, con su árbol, los
+    procesos que usan el perfil temporal de esta prueba (es único por ejecución).
+    """
+    subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+    if perfil:
+        consulta = (f"Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | "
+                    f"Where-Object {{ $_.CommandLine -like '*{Path(perfil).name}*' }} | "
+                    "ForEach-Object { taskkill /PID $_.ProcessId /T /F | Out-Null }")
+        subprocess.run(["powershell", "-NoProfile", "-Command", consulta], capture_output=True)
+
+
 def comprobar(condicion, descripcion):
     print(("  OK    " if condicion else "  FALLA ") + descripcion, flush=True)
     if not condicion:
@@ -217,7 +232,7 @@ def main():
                 time.sleep(4)                           # el DNS de trycloudflare tarda un poco
                 asyncio.run(probar(url, args.capturas))
         finally:
-            edge.terminate()
+            cerrar_edge(edge, perfil)
             servidor.terminate()
             try:
                 servidor.wait(15)
