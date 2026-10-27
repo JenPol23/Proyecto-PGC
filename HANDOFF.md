@@ -14,7 +14,9 @@ Proyecto de grado (sustentación final). Dos partes que se integran en una sola 
 | `firmware/esp32/` | Código MicroPython de la mano (`main.py` es el que va en la placa; `protocolo.md` explica las órdenes). **No modificar la lógica de movimiento** (ver `docs/GUIA_MODIFICAR_MANO.md`) | Jenpol |
 | `pgc/` | Servidor de la plataforma (FastAPI): cola de mensajes, mano por Bluetooth/USB, voz con Whisper, túnel HTTPS | Jenpol |
 | `web/` | Página del celular (`movil.html`, se abre con el QR) y pantalla del proyector (`pantalla.html`) | Jenpol |
-| `pgc/adaptadores/kinect/` | Aquí va el reconocimiento de señas con el Kinect, siguiendo el contrato de `docs/CONTRATO_KINECT.md` | Camila |
+| `integracion_kinect/` | Reconocimiento de señas: `capturador/` (app C# del Kinect, SDK 1.8) y `detector/` (MediaPipe Hands + **SVM** entrenado por el equipo, servidor en `127.0.0.1:8765`). La plataforma los usa tal cual | Camila |
+| `pgc/adaptadores/kinect/` | Conexión del detector con la plataforma: `reconocedor.py` (adaptador del contrato `docs/CONTRATO_KINECT.md`; **pendiente de revisión de Camila**), `procesos.py` (arranca el detector y la app C#) y `camara_pc.py` (cámara del PC en lugar del Kinect) | Jenpol (revisa Camila) |
+| `iniciar_pgc_integrado.py`, `acceso_kinect.py` | **Obsoletos** desde el 26/10/2026: `iniciar.bat` ya arranca todo y la pestaña Kinect es parte de la página. Se conservan sin cambios | Camila |
 | `tests/` | Pruebas automáticas (`py -3.11 -m pytest`); `tests/contratos/` comprueba que el reconocedor cumpla el contrato | Ambos |
 | `docs/` | Arquitectura, contrato del Kinect, guía para modificar la mano | Ambos |
 | `datos/` | Letras que hace la mano (`letras.json`) y palabras bloqueadas | Jenpol |
@@ -24,8 +26,10 @@ Proyecto de grado (sustentación final). Dos partes que se integran en una sola 
 
 1. Instalar dependencias (Python 3.11): `py -3.11 -m pip install -r requirements.txt`
 2. Copiar `.env.example` como `.env` (el `.env` **no** está en el repositorio porque lleva secretos).
-3. Sin la mano: `py -3.11 -m pgc --simular`. Con la mano: doble clic en `iniciar.bat`.
-4. Pruebas: `py -3.11 -m pytest`.
+3. Una sola vez: doble clic en `instalar_detector.bat` (crea `.venv-detector` con las versiones exactas del detector; unos 350 MB).
+4. Doble clic en `iniciar.bat`: arranca la plataforma, el detector y la app del Kinect compilada, y los cierra al salir. Sin la mano: `iniciar.bat --simular`. Si falta el detector o el Kinect, la plataforma arranca igual y dice "Kinect no conectado".
+5. Sin Kinect, con la cámara del PC: poner `PGC_KINECT_CAPTURADOR=camara_pc` en el `.env`.
+6. Pruebas: `py -3.11 -m pytest`.
 
 ## Requisitos de hardware y red
 
@@ -47,7 +51,10 @@ Nunca hacer push directo a `main` durante el desarrollo.
 
 ## Pendientes
 
-- [ ] Integrar la página web con el reconocimiento del Kinect (Jenpol)
+- [x] Integrar la página web con el reconocimiento del Kinect (Jenpol, 26/10/2026: rama `integracion-unificada`)
+- [ ] Revisar `pgc/adaptadores/kinect/reconocedor.py` y la sección 9 de `docs/CONTRATO_KINECT.md` (Camila)
+- [ ] Entregar el dataset, las métricas del SVM, `/spell/status` en JSON con confianza y latencia, y el `.exe` compilado (Camila)
+- [ ] Probar el Kinect físico con la app C# lanzada por `iniciar.bat` (Ambos)
 - [ ] Probar la página con la mano real por Bluetooth (ya implementado; falta la prueba física) (Jenpol)
 - [ ] Validar que cada letra del abecedario se vea bien en la mano (Jenpol)
 - [ ] Ajustar el reconocimiento del Kinect al proyecto (Camila)
