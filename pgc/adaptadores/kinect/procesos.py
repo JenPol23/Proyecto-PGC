@@ -26,6 +26,7 @@ RAIZ = Path(__file__).resolve().parents[3]
 DETECTOR = RAIZ / "integracion_kinect" / "detector"
 CAPTURADOR = RAIZ / "integracion_kinect" / "capturador" / "LSCKinectFramework"
 CAMARA_PC = Path(__file__).resolve().parent / "camara_pc.py"
+DETECTOR_PARALELO = Path(__file__).resolve().parent / "detector_paralelo.py"
 REGISTROS = RAIZ / "registros"
 # Dónde puede estar el entorno del detector: el de su README y el de la raíz del repositorio
 PYTHONS = (DETECTOR / ".venv" / "Scripts" / "python.exe", RAIZ / ".venv-detector" / "Scripts" / "python.exe")
@@ -168,7 +169,11 @@ class LanzadorKinect:
         while not self._parar.is_set() and fallos < 5:
             inicio = time.monotonic()
             self.log(f"[kinect] Iniciando el detector (registro en registros\\detector.log)")
-            proc = self._lanzar("detector", [self.python, "-u", "server_web_svm.py"], DETECTOR)
+            if self.cfg.kinect_detector_paralelo:     # su servidor, envuelto: lecturas en paralelo
+                comando = [self.python, "-u", DETECTOR_PARALELO, DETECTOR]
+            else:                                     # su servidor original, de a una petición
+                comando = [self.python, "-u", "server_web_svm.py"]
+            proc = self._lanzar("detector", comando, DETECTOR)
             codigo = proc.wait()
             if self._parar.is_set():
                 return

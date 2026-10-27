@@ -60,6 +60,7 @@ class Config:
     kinect_url: str = "http://127.0.0.1:8765"   # detector (server_web_svm.py)
     kinect_intervalo: float = 0.3          # s entre consultas a /spell/status
     kinect_lanzar: bool = True             # arrancar el detector y el capturador junto con la plataforma
+    kinect_detector_paralelo: bool = True  # su server_web_svm.py envuelto con lecturas en paralelo (detector_paralelo.py)
     kinect_python: str = ""                # Python del entorno del detector; vacío = buscarlo (ver procesos.py)
     kinect_capturador: str = "auto"        # auto (app C# si está compilada) | kinect | camara_pc | no
     kinect_exe: str = ""                   # LSCKinectFramework.exe; vacío = buscarlo en bin/Release o bin/Debug

@@ -65,7 +65,8 @@ def test_lanza_detector_y_app_del_kinect_y_los_cierra(lanzados):
     l, log = lanzador(lanzados)
     l.iniciar()
     esperar(lambda: len(lista) == 2)
-    detector = next(p for p in lista if "server_web_svm.py" in p.comando)
+    detector = next(p for p in lista if "detector_paralelo.py" in " ".join(p.comando))
+    assert detector.comando[-1] == str(procesos.DETECTOR)           # envuelve SU server_web_svm.py, sin cambiarlo
     app = next(p for p in lista if p.comando[0].endswith("LSCKinectFramework.exe"))
     assert detector.comando[0] == str(carpeta / "python.exe")
     assert detector.kw["cwd"] == str(procesos.DETECTOR)                 # su carpeta, sus archivos, tal cual
@@ -140,7 +141,7 @@ def test_la_app_espera_a_que_el_detector_responda(lanzados):
     l.iniciar()
     esperar(lambda: len(lista) == 1)                     # solo el detector
     time.sleep(0.6)
-    assert len(lista) == 1 and "server_web_svm.py" in lista[0].comando
+    assert len(lista) == 1 and "detector_paralelo.py" in " ".join(lista[0].comando)
     listo.set()                                          # el detector ya responde
     esperar(lambda: len(lista) == 2)
     assert lista[1].comando[0].endswith("LSCKinectFramework.exe")
@@ -162,4 +163,13 @@ def test_si_la_ventana_se_abre_en_grande_se_minimiza(lanzados):
     l, log = lanzador(lanzados, kinect_capturador="kinect", ventanas=[("Kinect - Ejemplos de LSC", False)])
     l.iniciar()
     esperar(lambda: any("se minimizó" in x for x in log))
+    l.detener()
+
+
+def test_se_puede_volver_a_su_servidor_original(lanzados):
+    lista, _, _ = lanzados
+    l, _ = lanzador(lanzados, kinect_capturador="no", kinect_detector_paralelo=False)
+    l.iniciar()
+    esperar(lambda: len(lista) == 1)
+    assert lista[0].comando[-1] == "server_web_svm.py"
     l.detener()
