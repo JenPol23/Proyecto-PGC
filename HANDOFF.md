@@ -31,6 +31,24 @@ Proyecto de grado (sustentación final). Dos partes que se integran en una sola 
 5. Sin Kinect, con la cámara del PC: poner `PGC_KINECT_CAPTURADOR=camara_pc` en el `.env`.
 6. Pruebas: `py -3.11 -m pytest`.
 
+## Pestaña Kinect de Camila: incorporada en `web/movil.html` (27/10/2026)
+
+Camila, la pestaña Kinect que diseñaste para el celular (la que servía `iniciar_pgc_integrado.py`) ya es parte de la página normal (`web/movil.html`), **con todas sus funciones**, el diseño de la plataforma y el turno de un jurado a la vez en lugar del código de 8 dígitos:
+
+| Tu pestaña | Ahora en `movil.html` |
+|---|---|
+| Texto deletreado y estado del detector ("Deletreo detenido.", "Posible letra…", "Letra añadida…") | Igual, en vivo por el WebSocket (los celulares no consultan el detector) |
+| Activar control / Volver a espectador (con el código del PC) | **Activar control** / **Volver a espectador** con el turno: un solo celular a la vez, se libera solo tras 2 minutos sin usarlo; el presentador lo puede liberar desde el proyector |
+| "Modo espectador." / "Control del teléfono activo (hasta 2 horas)." | "Modo espectador." / "Control del teléfono activo (se libera solo tras 2 minutos sin usarlo)." |
+| Iniciar, Detener, Espacio, Borrar, Limpiar | Iguales, solo para quien tiene el turno (Limpiar borra todo el texto, sin decirlo) |
+| Guardar TXT | Igual (`texto_lsc.txt`), **para todos**, también los espectadores: descarga el texto en curso o, si ya se terminó, la última frase |
+| Leer frase / Detener voz (voz del navegador) | Iguales, **para todos**, con tus mensajes ("Leyendo...", "Lectura terminada.", "Lectura detenida.", "No hay una voz en español disponible…"); prefiere una voz de Colombia |
+| Ver código / Revocar teléfonos y cambiar código | Reemplazados por **Liberar turno** en el proyector del PC |
+| Imagen de la cámara en el celular | **No**: por privacidad (Ley 1581), la cámara solo se ve en el proyector del PC (ADR-9) |
+| — | Nuevo: **Terminar y decirlo** (la frase se dice por los parlantes del PC con Coqui y, con el modo eco, la mano la deletrea) |
+
+Tu lanzador `iniciar_pgc_integrado.py` no se modificó y sigue funcionando, pero ya no hace falta.
+
 ## Requisitos de hardware y red
 
 - La mano se conecta al PC por **Bluetooth BLE** (nombre `Mano-LSC`; **no** emparejarla en Windows). La placa necesita su `config_ble.py` (copiar `firmware/esp32/config_ble.example.py`), con el mismo token que `PGC_MANO_BLE_TOKEN` del `.env`. Ese archivo tampoco está en el repositorio.
