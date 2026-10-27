@@ -82,6 +82,7 @@ Nunca hacer push directo a `main` durante el desarrollo.
 - [ ] Revisar `pgc/adaptadores/kinect/reconocedor.py` y la sección 9 de `docs/CONTRATO_KINECT.md` (Camila)
 - [ ] Entregar el dataset, las métricas del SVM, `/spell/status` en JSON con confianza y latencia, y el `.exe` compilado (Camila)
 - [ ] Probar el Kinect físico con la app C# lanzada por `iniciar.bat` (Ambos)
+- [ ] Correr el protocolo de letras (`/diagnostico` en el PC) y acordar ajustes con los datos de `experimentos/` (Ambos). Camila: la vista de diagnóstico **lee** el estado de tu deletreador y usa una copia de tu modelo para la 2.ª opción y el margen; no cambia nada de tu código ni de tu estado
 - [ ] Probar la página con la mano real por Bluetooth (ya implementado; falta la prueba física) (Jenpol)
 - [ ] Validar que cada letra del abecedario se vea bien en la mano (Jenpol)
 - [ ] Ajustar el reconocimiento del Kinect al proyecto (Camila)

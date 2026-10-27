@@ -458,6 +458,15 @@ Una sola dataclass congelada (`Config`) con **todos** los valores que hoy están
   - El Bluetooth de Windows tiene que estar encendido; si está apagado, el log lo dice.
   - Las pruebas usan una radio BLE falsa que ejecuta el `main.py` real y un bleak falso que habla con ella.
 
+**ADR-11 · Diagnóstico del reconocimiento y protocolo de letras (27/10/2026)**
+- *Contexto:* algunas letras no se toman. Antes de tocar el modelo o los tiempos de Camila hace falta saber por qué, letra por letra, con datos.
+- *Decisión:*
+  - `detector_paralelo.py` agrega `GET /diagnostico` (solo lectura): después de que SU lógica procesa cada imagen, lee su deletreador (candidata, desde cuándo, confirmaciones, armado) y, con una copia propia de su modelo, la 2.ª letra y el margen de la función de decisión del SVM (su modelo no calcula probabilidades: `probability=False`). Deriva el motivo: mano no detectada, más de una mano, retirar la mano, «sin letra», letra cambiando, tiempo insuficiente (x de 0,7 s), pocas imágenes (x de 4), confirmada.
+  - Vista `/diagnostico` solo en el PC (token), como la cámara: `GET /api/kinect/diagnostico` y el protocolo exigen token y origen local.
+  - Protocolo (`pgc/aplicacion/protocolo.py`, máquina de estados pura + hilo a ~10 muestras/s): pide cada letra N veces; confirma cuando el texto del detector crece (acierto o confusión) o da «no detectada» tras `tiempo_max`; el tiempo cuenta desde la primera imagen con mano. Ignora las muestras de imágenes procesadas antes de limpiar.
+  - Análisis puro (`pgc/dominio/experimento.py`): tabla por letra, matriz de confusión y causa probable (mano, «sin letra», letra parecida, inestable, tiempo de confirmación, margen bajo). Guardado (`pgc/adaptadores/experimentos.py`): `experimentos/<fecha_hora>/` con CSV (`;` y coma decimal), PNG e `informe.md`.
+- *Consecuencias:* el diagnóstico no cambia nada de su lógica (las POST siguen de a una; solo se leen sus campos). Con su servidor original (`PGC_KINECT_DETECTOR_PARALELO=false`) no hay diagnóstico (la vista lo dice). Los ajustes que salgan de los datos y toquen su código (tiempo de confirmación, más ejemplos) se acuerdan con ella.
+
 **ADR-10 · Velocidad del Kinect: detector en paralelo y app a 50 ms (27/10/2026)**
 - *Contexto:* medido con el detector real, el proyector mostraba ~3 imágenes/s. Tras optimizar el adaptador (espera larga, estado con cada imagen) quedaba limitado por dos cosas de la parte de Camila: su app espera 100 ms entre imágenes (máx. 10/s) y su detector atiende de a una petición (la vista previa espera a que termine cada imagen).
 - *Decisión (autorizada por el autor; la sustentación es en su PC):*

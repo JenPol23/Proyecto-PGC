@@ -88,6 +88,7 @@ Si la clase las tiene, la plataforma las usa; si no, todo sigue funcionando (sin
 |---|---|
 | `controlar(accion)` con `"iniciar"`, `"detener"`, `"espacio"`, `"borrar"`, `"terminar"` | Los botones del celular (quien tiene el turno) y del proyector (el presentador). `"terminar"` debe terminar emitiendo `EventoSena("fin")`. Si falla, lanza una excepción con un mensaje corto para el jurado |
 | `imagen()` → JPEG o `None` | La cámara con los puntos de la mano. **Solo** se muestra en el proyector del PC, nunca por el túnel |
+| `diagnostico()` → dict o `None` | Por qué una letra se confirma o no (mano, predicción, 2.ª opción, margen, tiempo estable, motivo). Solo para la vista de diagnóstico del PC |
 | `imagen_con_estado(despues=None, espera=0)` → `{jpeg, texto, detalle, cuadro, edad_ms, desfase_ms}` o `None` | La imagen con el texto y el estado leídos para ELLA (el proyector los muestra juntos); con `despues=N` espera hasta `espera` s un cuadro más nuevo que N |
 | atributos `conectado`, `camara`, `activo` | Si el detector responde, si llegan imágenes y si el deletreo está iniciado |
 | `desde_config(cfg)` (método de clase) | Recibir la configuración `PGC_KINECT_*` en lugar de leer el `.env` (regla 6) |

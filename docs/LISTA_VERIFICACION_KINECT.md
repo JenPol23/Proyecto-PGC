@@ -46,6 +46,14 @@ Marca cada casilla; si algo falla, mira la tabla del final antes de seguir.
 6. [ ] **Eco: sí** → repetir una frase → la mano la deletrea; las letras que la mano no hace (G, H, J, S, Z) aparecen como no disponibles.
 7. [ ] Anotar: distancia que mejor funciona, luz del salón, letras que fallan (para el informe y para Camila).
 
+## E2. Diagnóstico y protocolo de letras (en el PC)
+
+1. [ ] Pie del proyector → **Diagnóstico** (se abre `/diagnostico` en otra pestaña).
+2. [ ] Con una letra frente al Kinect, la vista muestra: mano detectada, letra posible, 2.ª opción y margen, barra de «Estable» hasta 0,7 s, imágenes (x de 4) y el motivo en grande.
+3. [ ] Protocolo: dejar «Letras» vacío (todas las del modelo), 5 repeticiones, 8 s → **Iniciar protocolo**. Hacer la letra que pide; cuando diga «Retira la mano», bajarla.
+4. [ ] Al terminar, la vista muestra la tabla por letra y la carpeta `experimentos\<fecha_hora>\` con los CSV, la matriz de confusión, las gráficas e `informe.md`.
+5. [ ] Anotar las condiciones de esa corrida (distancia, luz, quién hizo las letras) en `informe.md`: el análisis no las conoce.
+
 ## F. Desde los celulares
 
 1. [ ] Escanear el QR con dos celulares (uno con datos, otro con el WiFi del salón).
