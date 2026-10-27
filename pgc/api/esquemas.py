@@ -26,7 +26,7 @@ class Cliente(BaseModel):
 
 
 class ControlKinect(BaseModel):
-    accion: Literal["iniciar", "detener", "espacio", "borrar", "terminar"]
+    accion: Literal["iniciar", "detener", "espacio", "borrar", "limpiar", "terminar"]
     cliente: str | None = Field(default=None, pattern=PATRON_CLIENTE)    # None = el presentador (con token)
 
 

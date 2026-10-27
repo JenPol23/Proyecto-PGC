@@ -13,7 +13,7 @@ from pgc.aplicacion.turno import TurnoKinect
 from pgc.puertos.reconocedor import problemas_del_evento
 
 MAX_TEXTO = 60
-ACCIONES = ("iniciar", "detener", "espacio", "borrar", "terminar")
+ACCIONES = ("iniciar", "detener", "espacio", "borrar", "limpiar", "terminar")
 
 
 class SinControles(RuntimeError):

@@ -184,3 +184,18 @@ def test_muchos_celulares_con_la_pestana_kinect_no_cargan_al_detector(con_kinect
             time.sleep(1)
             con_30 = (detector.consultas - antes) / (time.monotonic() - t0)
         assert con_30 < solo * 1.5 + 5, (solo, con_30)              # no crece con el número de celulares
+
+
+def test_limpiar_borra_todo_y_solo_con_turno(con_kinect, detector):
+    with con_kinect() as (c, s):
+        esperar(lambda: s.senas.reconocedor.camara)
+        c.post("/api/kinect/turno", json={"cliente": "A"})
+        assert control(c, "iniciar", "A").status_code == 200
+        for letra in "HOLA":
+            detector.reconocer(letra)
+        esperar(lambda: s.senas.texto == "hola")
+        assert control(c, "limpiar", "B").status_code == 403          # un espectador no limpia
+        assert control(c, "limpiar", "A").status_code == 200
+        assert detector.texto == "" and detector.ordenes[-1] == "clear"
+        esperar(lambda: s.senas.texto == "" and c.get("/api/estado").json()["kinect"]["texto"] == "")
+        assert s.senas.frases == []                                    # limpiar no es terminar: no se dice nada
