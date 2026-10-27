@@ -42,14 +42,32 @@ class DetectorFalso:
         """Simula que llegan (o dejan de llegar) imágenes del Kinect."""
         self.imagen, self.t_imagen = (JPEG, time.monotonic()) if encendida else (None, 0.0)
 
-    def mantener_camara(self):
-        """Refresca la imagen cada 0,5 s (el original exige una de hace menos de 3 s)."""
-        def bucle():
-            while self.imagen is not None:
-                self.t_imagen = time.monotonic()
-                time.sleep(0.5)
+    def mantener_camara(self, por_segundo=10):
+        """Llegan cuadros nuevos sin parar, como de una cámara real: cada uno distinto del anterior.
+
+        Se agrega un contador después del final del JPEG (los navegadores lo ignoran). La base es la
+        imagen que haya puesto la prueba (detector.imagen = ...) o JPEG.
+        """
         self.camara(True)
+        self.cuadros = 0
+
+        def bucle():
+            base = None
+            while self.imagen is not None:
+                if base is None or not self.imagen.startswith(base):
+                    base = self.imagen
+                self.cuadros += 1
+                self.imagen = base + self.cuadros.to_bytes(4, "big")
+                self.t_imagen = time.monotonic()
+                time.sleep(1 / por_segundo)
         threading.Thread(target=bucle, daemon=True).start()
+
+    def congelar(self):
+        """La app deja de mandar cuadros: el detector repite la última imagen (hasta 3 s)."""
+        imagen = self.imagen
+        self.imagen = None                     # detiene el bucle de mantener_camara
+        time.sleep(0.2)
+        self.imagen, self.t_imagen = imagen, time.monotonic()
 
     def cerrar(self):
         self.imagen = None

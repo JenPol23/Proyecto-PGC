@@ -34,6 +34,11 @@ DETENIDO = "Deletreo detenido."
 ACCIONES = {"iniciar": "start", "detener": "stop", "espacio": "space", "borrar": "backspace", "limpiar": "clear"}
 SIN_MANO = ("No se detecta la mano.", "Lista para la siguiente letra.")
 MODELO = "SVM"                    # el modelo del detector (puntos de MediaPipe → letra)
+PERIODO_VISTA = 0.03              # mientras el proyector muestra la cámara: imagen cada 30 ms (hasta ~30/s)
+ESTADO_MAX_S = 0.3                # el estado se lee con cada imagen nueva, y al menos cada 0,3 s
+VISTA_ACTIVA_S = 3.0              # el proyector "está mirando" si pidió la imagen en los últimos 3 s
+CONGELADA_S = 1.5                 # mirando: si la imagen no cambia en 1,5 s, ya no llegan cuadros
+SIN_CUADROS_S = 3.0               # sin mirar (se revisa 1 vez/s): el mismo margen que usa el detector
 
 
 class ErrorKinect(RuntimeError):
@@ -85,7 +90,13 @@ class ReconocedorKinect:
         self._texto = ""              # último texto visto en el detector
         self._imagen = None
         self._t_imagen = 0.0
+        self._t_cambio = -1e9         # última vez que llegó una imagen DISTINTA (la cámara sigue viva)
+        self._cuadro = 0              # número de imágenes distintas recibidas
+        self._foto = None             # {jpeg, t, texto, detalle, desfase_ms, cuadro}: imagen + estado del mismo momento
+        self._detalle_detector = ""   # la línea "Estado:" del detector, tal cual
+        self._t_estado = 0.0
         self._t_pedida = -1e9         # alguien (el proyector) quiere ver la imagen
+        self._nueva = threading.Condition()   # avisa a quien espera la siguiente imagen (proyector)
         self._al_evento = self._avisar = None
         self._lock = threading.RLock()
         self._parar = threading.Event()
@@ -113,20 +124,35 @@ class ReconocedorKinect:
         if self.estado != "apagado":
             self._cambiar("apagado", "")
 
+    def _mirando(self):
+        return self._reloj() - self._t_pedida < VISTA_ACTIVA_S
+
     def _bucle(self):
-        siguiente_imagen = 0.0
+        """Sin nadie mirando: estado cada `intervalo` e imagen 1 vez/s (solo para saber si hay cámara).
+        Con el proyector mirando: imagen cada 30 ms y, apenas llega una NUEVA, su estado (así coinciden
+        y no se le piden al detector más estados de los necesarios: atiende de a una petición)."""
+        siguiente_imagen = siguiente_estado = 0.0
         while not self._parar.is_set():
+            inicio = self._reloj()
+            mirando = self._mirando()
             try:
                 with self._lock:
-                    self._sincronizar()
-                ahora = self._reloj()
-                if ahora >= siguiente_imagen:
-                    self._actualizar_imagen()
-                    # 5 imágenes/s si el proyector la está mostrando; si no, 1/s (solo para saber si hay cámara)
-                    siguiente_imagen = ahora + (0.2 if ahora - self._t_pedida < 3 else 1.0)
+                    if mirando:
+                        nueva = self._actualizar_imagen(emparejar=False)
+                        if nueva or inicio >= siguiente_estado:
+                            self._sincronizar()
+                            siguiente_estado = inicio + ESTADO_MAX_S
+                            if nueva:
+                                self._emparejar()
+                    else:
+                        self._sincronizar()
+                        if inicio >= siguiente_imagen:
+                            self._actualizar_imagen()
+                            siguiente_imagen = inicio + 1.0
             except Exception as ex:                       # regla 4: nada se escapa del hilo
                 self._cambiar("error", f"Kinect: {type(ex).__name__}")
-            self._parar.wait(self.intervalo)
+            periodo = PERIODO_VISTA if mirando else self.intervalo
+            self._parar.wait(max(0.0, periodo - (self._reloj() - inicio)))   # descuenta lo que tardó la vuelta
 
     # ------------------------------------------------------------ detector
     def _pedir(self, ruta, metodo="GET"):
@@ -144,6 +170,7 @@ class ReconocedorKinect:
             self._cambiar("error", NO_CONECTADO)
             return
         self.conectado = True
+        self._detalle_detector, self._t_estado = detalle, self._reloj()
         for evento in eventos_por_cambio(self._texto, texto):
             self._emitir(evento)
         self._texto = texto
@@ -159,17 +186,37 @@ class ReconocedorKinect:
         else:
             self._cambiar("sin_persona", detalle)
 
-    def _actualizar_imagen(self):
+    def _actualizar_imagen(self, emparejar=True):
+        """Trae /preview.jpg. Devuelve True si es una imagen NUEVA (el detector repite la última si no llegan)."""
+        nueva = False
         try:
             estado, tipo, cuerpo = self._pedir("/preview.jpg")
             if estado == 200 and tipo.startswith("image/jpeg"):
-                self._imagen, self._t_imagen = cuerpo, self._reloj()
+                ahora = self._reloj()
+                if cuerpo != self._imagen:
+                    nueva = True
+                    self._cuadro += 1
+                    self._t_cambio = ahora
+                self._imagen, self._t_imagen = cuerpo, ahora
+                if nueva and emparejar:
+                    self._emparejar()
         except (urllib.error.URLError, OSError):
             pass                                       # 503 = no llegan imágenes; el detector puede no estar
         self._camara_al_dia()
+        return nueva
+
+    def _emparejar(self):
+        """Guarda la imagen nueva con el texto y el estado leídos para ella, y avisa a quien la espera."""
+        self._foto = {"jpeg": self._imagen, "t": self._t_imagen, "texto": self._texto,
+                      "detalle": self._detalle_detector, "cuadro": self._cuadro,
+                      "desfase_ms": round(abs(self._t_estado - self._t_imagen) * 1000, 1)}
+        with self._nueva:
+            self._nueva.notify_all()
 
     def _camara_al_dia(self):
-        self.camara = self.conectado and self._reloj() - self._t_imagen < 3.0
+        """Hay cámara si llegan imágenes NUEVAS (una imagen repetida = congelada = no llegan cuadros)."""
+        limite = CONGELADA_S if self._mirando() else SIN_CUADROS_S
+        self.camara = self.conectado and self._reloj() - self._t_cambio < limite
 
     def _emitir(self, evento):
         if self._al_evento:
@@ -212,7 +259,27 @@ class ReconocedorKinect:
 
     def imagen(self):
         """Última imagen JPEG con los puntos de la mano, o None. Pedirla sube el ritmo de actualización."""
+        foto = self.imagen_con_estado()
+        return foto["jpeg"] if foto else None
+
+    def imagen_con_estado(self, despues=None, espera=0.0):
+        """La imagen con el texto y el estado del detector leídos para ELLA (contrato §3.1).
+
+        {"jpeg", "texto", "detalle", "cuadro", "edad_ms", "desfase_ms"}, o None si no llegan imágenes.
+        despues/espera: si ya se mostró el cuadro `despues`, espera hasta `espera` s a que llegue uno más
+        nuevo (así el proyector recibe cada imagen apenas existe, sin pedirla una y otra vez).
+        """
         self._t_pedida = self._reloj()
-        if self._imagen is None or self._reloj() - self._t_imagen > 3.0:
+        if despues is not None and espera > 0:
+            limite = self._reloj() + espera
+            with self._nueva:
+                while (self._foto is None or self._foto["cuadro"] <= despues) and not self._parar.is_set():
+                    restante = limite - self._reloj()
+                    if restante <= 0:
+                        break
+                    self._t_pedida = self._reloj()
+                    self._nueva.wait(min(restante, 0.5))
+        foto = self._foto
+        if foto is None or self._reloj() - self._t_cambio > SIN_CUADROS_S:
             return None
-        return self._imagen
+        return {**foto, "edad_ms": round((self._reloj() - foto["t"]) * 1000, 1)}

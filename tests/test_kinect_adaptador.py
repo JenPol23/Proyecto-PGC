@@ -1,4 +1,6 @@
 """ReconocedorKinect contra un detector falso que habla como el de integracion_kinect/."""
+import time
+
 import pytest
 
 from conftest import esperar
@@ -127,7 +129,7 @@ def test_imagen_solo_si_llegan_cuadros(kinect, detector):
     esperar(lambda: r.conectado)
     assert r.imagen() is None
     detector.mantener_camara()
-    esperar(lambda: r.imagen() == JPEG)
+    esperar(lambda: (r.imagen() or b"").startswith(JPEG))       # cuadros nuevos: JPEG + contador
 
 
 def test_estados_validos_y_detener_dos_veces(kinect):
@@ -143,3 +145,47 @@ def test_desde_config():
     from conftest import configuracion
     r = ReconocedorKinect.desde_config(configuracion(kinect_url="http://127.0.0.1:8799", kinect_intervalo=0.5))
     assert (r.url, r.intervalo) == ("http://127.0.0.1:8799", 0.5)
+
+
+# ---------------------------------------------------------------- vista previa: ritmo, pareja estado+imagen, congelada
+def test_mirando_lee_estado_e_imagen_juntos_y_rapido(kinect, detector):
+    r, _, _ = kinect
+    detector.mantener_camara(por_segundo=30)
+    esperar(lambda: r.camara)
+    r.controlar("iniciar")
+    detector.reconocer("A")
+    r.imagen_con_estado()                                   # el proyector empieza a mirar
+    antes, t0 = detector.consultas, time.monotonic()
+    vistos = set()
+    while time.monotonic() - t0 < 1.0:
+        foto = r.imagen_con_estado()
+        vistos.add(foto["cuadro"])
+        time.sleep(0.01)
+    por_segundo = (detector.consultas - antes) / (time.monotonic() - t0)
+    # ~20 vueltas/s (antes ~3). La prueba exige 10 para no fallar con el PC cargado; la cifra real se mide en Edge
+    assert por_segundo >= 10, por_segundo
+    assert len(vistos) >= 10, len(vistos)                   # imágenes distintas por segundo
+    foto = r.imagen_con_estado()
+    assert foto["texto"] == "A" and foto["detalle"].startswith("Letra añadida")   # el estado de ESA imagen
+    assert foto["desfase_ms"] < 50 and foto["edad_ms"] < 200
+
+
+def test_sin_mirar_no_carga_al_detector(kinect, detector):
+    r, _, _ = kinect                                        # intervalo 0,05 en la prueba; nadie pide la imagen
+    detector.mantener_camara()
+    esperar(lambda: r.camara)
+    r._t_pedida = -1e9
+    antes, t0 = detector.consultas, time.monotonic()
+    time.sleep(1)
+    assert (detector.consultas - antes) / (time.monotonic() - t0) <= 25    # solo el estado, a su ritmo normal
+
+
+def test_imagen_congelada_es_kinect_no_conectado(kinect, detector):
+    r, _, _ = kinect
+    detector.mantener_camara()
+    r.imagen_con_estado()                                   # mirando
+    esperar(lambda: r.camara and r.estado == "sin_persona")
+    detector.congelar()                                     # el detector sigue repitiendo la última imagen
+    t0 = time.monotonic()
+    esperar(lambda: r.estado == "error" and r.detalle == NO_CONECTADO, timeout=4)
+    assert time.monotonic() - t0 < 2.5                      # antes: 3 s después de que el detector diera 503

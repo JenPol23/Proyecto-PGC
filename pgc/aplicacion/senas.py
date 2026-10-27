@@ -127,6 +127,15 @@ class ServicioSenas:
         obtener = getattr(self.reconocedor, "imagen", None)
         return obtener() if callable(obtener) else None
 
+    def imagen_con_estado(self, despues=None, espera=0.0):
+        """La imagen y el estado del mismo momento ({"jpeg", "texto", "detalle", "cuadro", "edad_ms",
+        "desfase_ms"}), o None. Si el reconocedor solo tiene imagen(), se arma con el estado actual."""
+        obtener = getattr(self.reconocedor, "imagen_con_estado", None)
+        if callable(obtener):
+            return obtener(despues, espera)
+        jpeg = self.imagen()
+        return jpeg and {"jpeg": jpeg, "texto": self.texto, "detalle": self.reconocedor.detalle}
+
     def instantanea(self):
         r = self.reconocedor
         return {"estado": r.estado, "detalle": r.detalle, "texto": self.texto,

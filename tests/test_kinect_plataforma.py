@@ -118,7 +118,7 @@ def test_imagen_solo_en_el_pc_con_token(con_kinect):
         esperar(lambda: s.senas.reconocedor.camara)
         esperar(lambda: c.get("/api/kinect/imagen", headers=admin(c)).status_code == 200)
         r = c.get("/api/kinect/imagen", headers=admin(c))
-        assert r.content == JPEG and r.headers["content-type"] == "image/jpeg"
+        assert r.content.startswith(JPEG) and r.headers["content-type"] == "image/jpeg"
         assert c.get("/api/kinect/imagen").status_code == 403                        # PC sin token
         assert c.get("/api/kinect/imagen", headers={**admin(c), **TUNEL}).status_code == 403   # por el túnel
     with con_kinect() as (c, s):
@@ -199,3 +199,19 @@ def test_limpiar_borra_todo_y_solo_con_turno(con_kinect, detector):
         assert detector.texto == "" and detector.ordenes[-1] == "clear"
         esperar(lambda: s.senas.texto == "" and c.get("/api/estado").json()["kinect"]["texto"] == "")
         assert s.senas.frases == []                                    # limpiar no es terminar: no se dice nada
+
+
+def test_la_imagen_siguiente_llega_apenas_existe(con_kinect, detector):
+    """?despues=N: el proyector recibe cada cuadro una sola vez, sin pedirlo una y otra vez."""
+    with con_kinect(PC) as (c, s):
+        detector.mantener_camara(por_segundo=20)
+        esperar(lambda: c.get("/api/kinect/imagen", headers=admin(c)).status_code == 200)
+        cuadros, t0 = [], time.monotonic()
+        ultimo = int(c.get("/api/kinect/imagen", headers=admin(c)).headers["X-Kinect-Cuadro"])
+        while time.monotonic() - t0 < 1.0:
+            r = c.get(f"/api/kinect/imagen?despues={ultimo}", headers=admin(c))
+            ultimo = int(r.headers["X-Kinect-Cuadro"])
+            cuadros.append(ultimo)
+        assert len(cuadros) == len(set(cuadros))                # ningún cuadro repetido
+        assert len(cuadros) >= 10, len(cuadros)                 # la prueba exige 10/s; en Edge se mide la cifra real
+        assert float(r.headers["X-Kinect-Desfase-Ms"]) < 100    # estado e imagen del mismo momento

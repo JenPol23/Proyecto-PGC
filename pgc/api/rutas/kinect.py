@@ -3,7 +3,9 @@
 El estado del Kinect (texto en vivo, detector, turno) NO tiene rutas para
 consultar: llega a todos por el WebSocket. Aquí solo hay órdenes.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from pgc.api.dependencias import SIN_CACHE, obtener_sistema
@@ -66,9 +68,19 @@ def eco(datos: Eco, sistema=Depends(obtener_sistema)):
 
 
 @router.get("/api/kinect/imagen", dependencies=[Depends(verificar_admin)])
-def imagen(sistema=Depends(obtener_sistema)):
-    """La cámara con los puntos de la mano: solo en el PC del proyector, nunca por el túnel ni la red."""
-    jpeg = sistema.senas.imagen()
-    if jpeg is None:
+def imagen(despues: int | None = Query(default=None, ge=0), sistema=Depends(obtener_sistema)):
+    """La cámara con los puntos de la mano: solo en el PC del proyector, nunca por el túnel ni la red.
+
+    ?despues=N: responde apenas haya un cuadro más nuevo que N (o tras 1 s con el último).
+    """
+    foto = sistema.senas.imagen_con_estado(despues, 1.0 if despues is not None else 0.0)
+    if not foto:
         raise HTTPException(503, "No llegan imágenes del Kinect.")
-    return Response(jpeg, media_type="image/jpeg", headers=SIN_CACHE)
+    # El estado del MISMO momento que la imagen, para que el proyector los muestre juntos
+    cabeceras = {**SIN_CACHE, "X-Kinect-Texto": quote(foto.get("texto") or ""),
+                 "X-Kinect-Detalle": quote(foto.get("detalle") or "")}
+    for clave, nombre in (("cuadro", "X-Kinect-Cuadro"), ("edad_ms", "X-Kinect-Edad-Ms"),
+                          ("desfase_ms", "X-Kinect-Desfase-Ms")):
+        if foto.get(clave) is not None:
+            cabeceras[nombre] = str(foto[clave])
+    return Response(foto["jpeg"], media_type="image/jpeg", headers=cabeceras)
