@@ -209,7 +209,7 @@ La parte de Camila llegó como **dos programas** en `integracion_kinect/`:
 Se usan **tal cual**. `pgc/adaptadores/kinect/reconocedor.py` los conecta al contrato:
 - consulta `GET /spell/status` cada 0,3 s (`Texto: …\nEstado: …`) y convierte el cambio del texto en eventos: letra nueva → `letra` (minúscula), espacio → `espacio`, texto más corto → `borrar` (se borra hasta el prefijo común y se escribe el resto);
 - `fin` lo emite el adaptador cuando alguien toca **Terminar**: primero recoge las letras pendientes, luego emite `fin` y deja en blanco el texto del detector (`POST /spell/clear`);
-- `GET /preview.jpg` (cada 1 s, o 5/s mientras el proyector la muestra) dice si llegan imágenes y guarda la última para el proyector;
+- `GET /preview.jpg`: sin nadie mirando, 1 vez/s (solo para saber si llegan imágenes); mientras el proyector muestra la cámara, cada 30 ms, y **con cada imagen nueva se lee su estado** y se guardan juntos (imagen + texto + estado del mismo momento). El proyector pide `GET /api/kinect/imagen?despues=N` y el servidor responde apenas hay un cuadro más nuevo que N (espera larga): cada cuadro llega una sola vez. Una imagen que no cambia en 1,5 s = no llegan cuadros = "Kinect no conectado" (27/10/2026; medido: el proyector muestra todas las imágenes de la app, 9,9 de 10/s, antes 3,1/s);
 - estado: sin detector o sin imágenes → `error` con detalle **"Kinect no conectado"**; reconociendo con la mano a la vista → `listo`; detenido o sin mano → `sin_persona`;
 - si el detector pasa a devolver JSON (`texto`, `estado`, `activo`, `confianza`, `latencia_ms`), se usa sin cambiar el adaptador.
 
